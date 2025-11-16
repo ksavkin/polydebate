@@ -288,7 +288,15 @@ Instructions:
                         # Normalize to 100
                         total = sum(predictions.values())
                         if total > 0:
-                            predictions = {k: int(v * 100 / total) for k, v in predictions.items()}
+                            # Use proper rounding to avoid truncation errors
+                            normalized = {k: round(v * 100 / total) for k, v in predictions.items()}
+                            # Adjust for rounding errors to ensure sum equals 100
+                            diff = 100 - sum(normalized.values())
+                            if diff != 0:
+                                # Add/subtract difference to the largest value
+                                max_key = max(normalized.items(), key=lambda x: x[1])[0]
+                                normalized[max_key] += diff
+                            predictions = normalized
 
                     return {
                         'content': argument,
