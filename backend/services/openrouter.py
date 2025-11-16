@@ -2,6 +2,7 @@
 OpenRouter API integration service
 """
 import aiohttp
+import asyncio
 import logging
 from typing import List, Dict, Optional
 from config import config
@@ -217,94 +218,86 @@ Instructions:
                 "max_tokens": 300  # Increased for JSON response with predictions
             }
 
-            async with session.post(
-                f"{self.base_url}/chat/completions",
-                headers=headers,
-                json=payload,
-                ssl=False,
-                timeout=aiohttp.ClientTimeout(total=60)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
-
-                # Log the full response for debugging
-                logger.debug(f"OpenRouter response for {model_id}: {data}")
-
-                # Check if response has expected structure
-                if 'error' in data:
-                    error_msg = data['error'].get('message', str(data['error']))
-                    logger.error(f"OpenRouter API error for {model_id}: {error_msg}")
-                    raise Exception(f"OpenRouter API error: {error_msg}")
-
-                if 'choices' not in data or not data['choices']:
-                    logger.error(f"No choices in response for {model_id}: {data}")
-                    raise Exception("OpenRouter returned no choices in response")
-
-                choice = data['choices'][0]
-                if 'message' not in choice or 'content' not in choice['message']:
-                    logger.error(f"Invalid response structure for {model_id}: {data}")
-                    raise Exception("OpenRouter response missing message content")
-
-                content = choice['message']['content']
-
-                if not content:
-                    logger.warning(f"Empty content from {model_id}")
-                    raise Exception("OpenRouter returned empty content")
-
-                # Parse JSON response
-                import json
-                import re
-
+            # Retry logic for rate limit errors
+            max_retries = 3
+            retry_delay = 2  # Start with 2 seconds
+            last_exception = None
+            data = None
+            
+            for attempt in range(max_retries):
                 try:
-                    # Try to extract JSON from response (may be wrapped in markdown)
-                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-                    if json_match:
-                        json_text = json_match.group(1)
+                    async with session.post(
+                        f"{self.base_url}/chat/completions",
+                        headers=headers,
+                        json=payload,
+                        ssl=False,
+                        timeout=aiohttp.ClientTimeout(total=60)
+                    ) as response:
+                        # Check for rate limit (429) specifically
+                        if response.status == 429:
+                            if attempt < max_retries - 1:
+                                retry_after = int(response.headers.get('Retry-After', retry_delay))
+                                wait_time = max(retry_after, retry_delay * (2 ** attempt))
+                                logger.warning(f"Rate limit (429) for {model_id}, attempt {attempt + 1}/{max_retries}. Retrying after {wait_time}s...")
+                                await asyncio.sleep(wait_time)
+                                continue
+                            else:
+                                # Last attempt failed, raise the error
+                                response.raise_for_status()
+                        
+                        response.raise_for_status()
+                        data = await response.json()
+                        break  # Success, exit retry loop
+                        
+                except aiohttp.ClientResponseError as e:
+                    if e.status == 429 and attempt < max_retries - 1:
+                        retry_after = int(e.headers.get('Retry-After', retry_delay)) if hasattr(e, 'headers') else retry_delay
+                        wait_time = max(retry_after, retry_delay * (2 ** attempt))
+                        logger.warning(f"Rate limit (429) for {model_id}, attempt {attempt + 1}/{max_retries}. Retrying after {wait_time}s...")
+                        await asyncio.sleep(wait_time)
+                        last_exception = e
+                        continue
                     else:
-                        # Try to find raw JSON
-                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                        if json_match:
-                            json_text = json_match.group(0)
-                        else:
-                            # No JSON found, treat as plain text
-                            logger.warning(f"No JSON found in response from {model_id}, using plain text")
-                            # Create default predictions (equal distribution)
-                            return {
-                                'content': content,
-                                'predictions': {},
-                                'model': model_id,
-                                'tokens': data.get('usage', {})
-                            }
+                        # Not a retryable error or out of retries
+                        raise
+                except Exception as e:
+                    # Non-HTTP errors, don't retry
+                    raise
+            else:
+                # All retries exhausted
+                if last_exception:
+                    raise last_exception
+                raise Exception(f"Failed to get response from {model_id} after {max_retries} attempts")
 
-                    parsed = json.loads(json_text)
+            # Log the full response for debugging
+            logger.debug(f"OpenRouter response for {model_id}: {data}")
 
-                    # Extract argument and predictions
-                    argument = parsed.get('argument', content)
-                    predictions = parsed.get('predictions', {})
+            # Check if response has expected structure
+            if 'error' in data:
+                error_msg = data['error'].get('message', str(data['error']))
+                logger.error(f"OpenRouter API error for {model_id}: {error_msg}")
+                raise Exception(f"OpenRouter API error: {error_msg}")
 
-                    # Validate predictions sum to 100
-                    if predictions and sum(predictions.values()) != 100:
-                        logger.warning(f"Predictions from {model_id} don't sum to 100: {predictions}")
-                        # Normalize to 100
-                        total = sum(predictions.values())
-                        if total > 0:
-                            predictions = {k: int(v * 100 / total) for k, v in predictions.items()}
+            if 'choices' not in data or not data['choices']:
+                logger.error(f"No choices in response for {model_id}: {data}")
+                raise Exception("OpenRouter returned no choices in response")
 
-                    return {
-                        'content': argument,
-                        'predictions': predictions,
-                        'model': model_id,
-                        'tokens': data.get('usage', {})
-                    }
+            choice = data['choices'][0]
+            if 'message' not in choice or 'content' not in choice['message']:
+                logger.error(f"Invalid response structure for {model_id}: {data}")
+                raise Exception("OpenRouter response missing message content")
 
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
-                    return {
-                        'content': content,
-                        'predictions': {},
-                        'model': model_id,
-                        'tokens': data.get('usage', {})
-                    }
+            content = choice['message']['content']
+
+            if not content:
+                logger.warning(f"Empty content from {model_id}")
+                raise Exception("OpenRouter returned empty content")
+
+            return {
+                'content': content,
+                'model': model_id,
+                'tokens': data.get('usage', {})
+            }
 
 
 # Global instance

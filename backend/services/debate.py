@@ -120,12 +120,30 @@ class DebateService:
         })
 
         debate.set_status('in_progress')
-        debate.save()
+        try:
+            debate.save()
+        except Exception as save_error:
+            logger.error(f"Failed to save debate start: {type(save_error).__name__}: {str(save_error)}", exc_info=True)
+            # Send error and return
+            error_data = {
+                'error': f"Failed to start debate: {type(save_error).__name__}: {str(save_error)}",
+                'message': f"Could not initialize debate: {str(save_error)}",
+                'timestamp': datetime.utcnow().isoformat() + 'Z'
+            }
+            await event_queue.put({
+                'event': 'error',
+                'data': error_data
+            })
+            return
 
         # Run debate rounds
         for round_num in range(1, debate.rounds + 1):
             debate.current_round = round_num
-            debate.save()
+            try:
+                debate.save()
+            except Exception as save_error:
+                logger.warning(f"Failed to save round update: {type(save_error).__name__}: {str(save_error)}", exc_info=True)
+                # Continue anyway - round update failure is not critical
 
             # Determine message type
             if round_num == 1:
@@ -203,9 +221,27 @@ class DebateService:
 
                     # Store message
                     debate.add_message(message)
-                    debate.save()
-
-                    logger.info(f"Saved message from {model.model_id}")
+                    
+                    # Save debate - wrap in try-except to handle database errors
+                    try:
+                        debate.save()
+                        logger.info(f"Saved message from {model.model_id}")
+                    except Exception as save_error:
+                        logger.error(f"Failed to save debate after message from {model.model_id}: {type(save_error).__name__}: {str(save_error)}", exc_info=True)
+                        # Send error event but continue - don't break the entire debate
+                        error_data = {
+                            'model_id': model.model_id,
+                            'model_name': model.model_name,
+                            'error': f"Database save failed: {type(save_error).__name__}: {str(save_error)}",
+                            'message': f"Failed to save message from {model.model_name}",
+                            'timestamp': datetime.utcnow().isoformat() + 'Z'
+                        }
+                        await event_queue.put({
+                            'event': 'error',
+                            'data': error_data
+                        })
+                        # Continue to next model - don't break the loop
+                        continue
 
                     # Send message event
                     await event_queue.put({
@@ -217,19 +253,27 @@ class DebateService:
                     logger.error(f"Error from {model.model_id}: {type(e).__name__}: {str(e)}", exc_info=True)
 
                     # Send error event
+                    error_data = {
+                        'model_id': model.model_id,
+                        'model_name': model.model_name,
+                        'error': f"{type(e).__name__}: {str(e)}",
+                        'message': f"Error from {model.model_name}: {str(e)}",
+                        'timestamp': datetime.utcnow().isoformat() + 'Z'
+                    }
                     await event_queue.put({
                         'event': 'error',
-                        'data': {
-                            'model_id': model.model_id,
-                            'model_name': model.model_name,
-                            'error': f"{type(e).__name__}: {str(e)}",
-                            'timestamp': datetime.utcnow().isoformat() + 'Z'
-                        }
+                        'data': error_data
                     })
+                    # Continue to next model instead of breaking the entire debate
+                    continue
 
         # Debate complete - save status first
         debate.set_status('completed')
-        debate.save()
+        try:
+            debate.save()
+        except Exception as save_error:
+            logger.error(f"Failed to save debate completion: {type(save_error).__name__}: {str(save_error)}", exc_info=True)
+            # Continue anyway - send completion event
 
         # Generate final summary and predictions using Gemini
         # (get_debate_results will handle locking and saving to DB)

@@ -4,9 +4,11 @@ Debate routes - AI debate endpoints
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 import asyncio
 import json
+import logging
 from services.debate import debate_service
 from config import config
 
+logger = logging.getLogger(__name__)
 debate_bp = Blueprint('debate', __name__)
 
 
@@ -140,7 +142,11 @@ def stream_debate(debate_id):
         # Check if debate exists
         debate = debate_service.get_debate(debate_id)
         if not debate:
-            yield f"event: error\ndata: {json.dumps({'error': 'Debate not found'})}\n\n"
+            error_data = {
+                'error': 'Debate not found',
+                'message': f'Debate with ID {debate_id} was not found'
+            }
+            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
             return
 
         # Create event queue for this stream
@@ -156,13 +162,27 @@ def stream_debate(debate_id):
             try:
                 await debate_service.run_debate(debate_id, event_queue)
             except Exception as e:
-                await event_queue.put({
-                    'event': 'error',
-                    'data': {'error': str(e)}
-                })
+                import traceback
+                error_trace = traceback.format_exc()
+                logger.error(f"Unhandled exception in debate stream: {error_trace}")
+                try:
+                    error_data = {
+                        'error': f"{type(e).__name__}: {str(e)}",
+                        'message': f"Unhandled exception in debate stream: {str(e)}",
+                        'traceback': error_trace if config.DEBUG else None
+                    }
+                    await event_queue.put({
+                        'event': 'error',
+                        'data': error_data
+                    })
+                except Exception as queue_error:
+                    logger.error(f"Failed to send error event to queue: {queue_error}")
             finally:
                 # Signal completion
-                await event_queue.put(None)
+                try:
+                    await event_queue.put(None)
+                except Exception:
+                    pass  # Queue might be closed
 
         # Start debate task
         debate_task = loop.create_task(run_debate_and_stream())
@@ -182,7 +202,14 @@ def stream_debate(debate_id):
 
                     # Format as SSE
                     event_type = event.get('event', 'message')
-                    event_data = json.dumps(event.get('data', {}))
+                    event_data_obj = event.get('data', {})
+                    
+                    # Ensure error events always have meaningful data
+                    if event_type == 'error' and not event_data_obj.get('error') and not event_data_obj.get('message'):
+                        event_data_obj['error'] = 'Unknown error occurred'
+                        logger.warning(f"Error event with empty data, adding default message: {event}")
+                    
+                    event_data = json.dumps(event_data_obj)
                     yield f"event: {event_type}\ndata: {event_data}\n\n"
 
                 except asyncio.TimeoutError:
@@ -192,14 +219,22 @@ def stream_debate(debate_id):
                         try:
                             debate_task.result()
                         except Exception as e:
-                            yield f"event: error\ndata: {json.dumps({'error': f'Debate task failed: {str(e)}'})}\n\n"
+                            error_data = {
+                                'error': f'Debate task failed: {str(e)}',
+                                'message': f'The debate task encountered an error: {str(e)}'
+                            }
+                            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
                         break
                     # Send keepalive and continue waiting
                     yield ": keepalive\n\n"
                     continue
 
         except Exception as e:
-            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+            error_data = {
+                'error': str(e),
+                'message': f'Stream error: {str(e)}'
+            }
+            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
         finally:
             # Cleanup
             if not debate_task.done():
