@@ -69,10 +69,14 @@ def register_routes(app):
     # Import blueprints
     from routes.markets import markets_bp
     from routes.auth import auth_bp
+    from routes.debate import debate_bp
+    from routes.models import models_bp
 
     # Register blueprints
     app.register_blueprint(markets_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    app.register_blueprint(debate_bp, url_prefix='/api')
+    app.register_blueprint(models_bp, url_prefix='/api')
 
     @app.route('/api/health', methods=['GET'])
     def health():
