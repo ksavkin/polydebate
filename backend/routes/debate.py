@@ -214,3 +214,28 @@ def stream_debate(debate_id):
             'X-Accel-Buffering': 'no'
         }
     )
+
+
+@debate_bp.route('/debate/<debate_id>/results', methods=['GET'])
+def get_debate_results(debate_id):
+    """GET /api/debate/<debate_id>/results - Get debate results with summary"""
+    try:
+        results = debate_service.get_debate_results(debate_id)
+
+        if not results:
+            return jsonify({
+                'error': {
+                    'code': 'debate_not_found_or_incomplete',
+                    'message': f'Debate {debate_id} not found or not yet completed'
+                }
+            }), 404
+
+        return jsonify(results), 200
+
+    except Exception as e:
+        return jsonify({
+            'error': {
+                'code': 'internal_error',
+                'message': str(e)
+            }
+        }), 500
