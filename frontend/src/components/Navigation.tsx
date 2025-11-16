@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useAuth } from "@/contexts/AuthContext";
 
 const categories = [
   "Trending",
@@ -66,11 +67,11 @@ interface NavigationProps {
   onSearchChange: (query: string) => void;
 }
 
-export function Navigation({ 
-  activeCategory, 
+export function Navigation({
+  activeCategory,
   activeSubtopic,
   searchQuery,
-  onCategoryChange, 
+  onCategoryChange,
   onSubtopicChange,
   onSearchChange,
 }: NavigationProps) {
@@ -78,6 +79,7 @@ export function Navigation({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user, isAuthenticated, logout } = useAuth();
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
   const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
 
@@ -143,11 +145,11 @@ export function Navigation({
           <div className="flex items-center gap-2 shrink-0">
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                style={{ 
-                  color: "rgba(255, 255, 255, 0.9)", 
+              <Button
+                variant="ghost"
+                size="sm"
+                style={{
+                  color: "rgba(255, 255, 255, 0.9)",
                   border: "none",
                   backgroundColor: "transparent",
                 }}
@@ -161,39 +163,72 @@ export function Navigation({
               >
                 How it works
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                style={{ 
-                  color: "rgba(255, 255, 255, 0.9)",
-                  backgroundColor: "transparent",
-                }}
-                className="hover:bg-white/10 transition-colors duration-150"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                }}
-              >
-                Log In
-              </Button>
-              <Button
-                size="sm"
-                className="text-white transition-all duration-150"
-                style={{
-                  backgroundColor: "var(--color-primary)",
-                  boxShadow: "var(--shadow-primary)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-primary)";
-                }}
-              >
-                Sign Up
-              </Button>
+
+              {isAuthenticated ? (
+                <>
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/10">
+                    <span className="text-sm text-white/90">{user?.name || user?.email}</span>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={logout}
+                    style={{
+                      color: "rgba(255, 255, 255, 0.9)",
+                      backgroundColor: "transparent",
+                    }}
+                    className="hover:bg-white/10 transition-colors duration-150"
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
+                    }}
+                  >
+                    Log Out
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Link href="/login">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      style={{
+                        color: "rgba(255, 255, 255, 0.9)",
+                        backgroundColor: "transparent",
+                      }}
+                      className="hover:bg-white/10 transition-colors duration-150"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
+                      }}
+                    >
+                      Log In
+                    </Button>
+                  </Link>
+                  <Link href="/signup">
+                    <Button
+                      size="sm"
+                      className="text-white transition-all duration-150"
+                      style={{
+                        backgroundColor: "var(--color-primary)",
+                        boxShadow: "var(--shadow-primary)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = "var(--color-primary)";
+                      }}
+                    >
+                      Sign Up
+                    </Button>
+                  </Link>
+                </>
+              )}
             </div>
             {/* Mobile Menu Icon */}
             <button

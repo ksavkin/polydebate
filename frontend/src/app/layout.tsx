@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { SharedLayout } from "@/components/SharedLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,11 +24,13 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        <SearchProvider>
-          <SharedLayout>
-        {children}
-          </SharedLayout>
-        </SearchProvider>
+        <AuthProvider>
+          <SearchProvider>
+            <SharedLayout>
+              {children}
+            </SharedLayout>
+          </SearchProvider>
+        </AuthProvider>
       </body>
     </html>
   );
