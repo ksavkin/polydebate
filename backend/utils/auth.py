@@ -7,7 +7,8 @@ from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
 from typing import Optional, Dict, Any
-from models import Session, User
+from database import get_db
+from models import User
 from utils.logger import get_auth_logger
 
 logger = get_auth_logger()
@@ -105,7 +106,7 @@ class JWTAuth:
             if not user_id:
                 return None
 
-            db = Session()
+            db = get_db()
             try:
                 user = db.query(User).filter(User.id == user_id, User.is_active == True).first()
                 return user

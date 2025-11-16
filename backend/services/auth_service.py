@@ -5,7 +5,8 @@ import random
 import string
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
-from models import Session, User, VerificationCode, CodeType
+from database import get_db
+from models import User, VerificationCode, CodeType
 from utils.logger import get_auth_logger
 from utils.auth import JWTAuth, hash_verification_code, verify_verification_code
 from services.email_service import EmailService
@@ -52,7 +53,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, error_code)
         """
-        db = Session()
+        db = get_db()
         try:
             # Check if user already exists
             existing_user = db.query(User).filter(User.email == email).first()
@@ -119,7 +120,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, user_data_with_token, error_code)
         """
-        db = Session()
+        db = get_db()
         try:
             # Check if user already exists
             existing_user = db.query(User).filter(User.email == email).first()
@@ -196,7 +197,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, error_code)
         """
-        db = Session()
+        db = get_db()
         try:
             # Check if user exists
             user = db.query(User).filter(User.email == email).first()
@@ -267,7 +268,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, user_data_with_token, error_code)
         """
-        db = Session()
+        db = get_db()
         try:
             # Find user
             user = db.query(User).filter(User.email == email).first()

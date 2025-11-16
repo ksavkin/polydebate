@@ -4,7 +4,7 @@ Verification code model for passwordless authentication
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Enum as SQLEnum
 from sqlalchemy.orm import relationship
-from models.base import Base
+from database import Base
 import enum
 
 

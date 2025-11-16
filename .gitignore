@@ -71,6 +71,7 @@ build/
 /backend/venv/
 venv/
 .venv/
+/backend/.env
 
 # IDE
 .vscode/

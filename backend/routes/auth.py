@@ -356,7 +356,7 @@ def get_current_user(current_user):
 def update_current_user(current_user):
     """Update current authenticated user"""
     try:
-        from models import Session
+        from database import get_db
 
         data = request.get_json()
 
@@ -371,7 +371,7 @@ def update_current_user(current_user):
                 }
             }), 400
 
-        db = Session()
+        db = get_db()
         try:
             # Update user fields
             if validated_data.get('name'):

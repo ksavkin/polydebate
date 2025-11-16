@@ -1,12 +1,20 @@
 """
 PolyDebate Backend - Flask Application
 """
+import sys
+import asyncio
+
+# Fix for aiohttp on Windows - requires SelectorEventLoop instead of ProactorEventLoop
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from datetime import datetime
 import logging
 
 from config import config
+from database import init_db, create_all_tables
 
 # Setup logging
 logging.basicConfig(
@@ -29,8 +37,9 @@ def create_app():
 
     # Initialize database
     try:
-        from models import init_db
-        init_db()
+        logger.info(f"Initializing database: {config.DATABASE_URL}")
+        init_db(config.DATABASE_URL, echo=config.DEBUG)
+        create_all_tables()
         logger.info("Database initialized successfully")
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")
@@ -95,6 +104,33 @@ def register_routes(app):
                 }
             }
         }), 200
+
+    @app.route('/api/audio/<filename>', methods=['GET'])
+    def serve_audio(filename):
+        """Serve audio files"""
+        from flask import send_from_directory
+        import os
+
+        # Security: validate filename
+        if not filename.endswith('.mp3') or '..' in filename or '/' in filename:
+            return jsonify({
+                'error': {
+                    'code': 'invalid_filename',
+                    'message': 'Invalid audio filename'
+                }
+            }), 400
+
+        audio_path = os.path.join(config.AUDIO_DIR, filename)
+
+        if not os.path.exists(audio_path):
+            return jsonify({
+                'error': {
+                    'code': 'audio_not_found',
+                    'message': f'Audio file {filename} not found'
+                }
+            }), 404
+
+        return send_from_directory(config.AUDIO_DIR, filename, mimetype='audio/mpeg')
 
 
 def register_error_handlers(app):

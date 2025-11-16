@@ -4,7 +4,7 @@ User model for authentication
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.orm import relationship
-from models.base import Base
+from database import Base
 
 
 class User(Base):
