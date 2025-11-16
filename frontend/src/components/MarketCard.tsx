@@ -3,7 +3,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import BlurText from "@/components/BlurText";
 import { useState, useMemo, useRef, useEffect } from "react";
-import Link from "next/link";
 
 interface Outcome {
   name: string;
@@ -51,20 +50,12 @@ export function MarketCard({
   period = "daily",
   isNew = false,
 }: MarketCardProps) {
+  const [hoveredIcon, setHoveredIcon] = useState<'save' | 'share' | null>(null);
   const [isCardHovered, setIsCardHovered] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const cardRef = useRef<HTMLDivElement | null>(null);
 
-  // Check if market has ended
-  const isEnded = useMemo(() => {
-    if (!end_date) return false;
-    const endDate = new Date(end_date);
-    const now = new Date();
-    return now > endDate;
-  }, [end_date]);
-
-  // Filter out outcomes with 0 shares and sort by volume (shares) from highest to lowest
+  // Filter out outcomes with 0 shares and sort by price (highest to lowest)
   const sortedOutcomes = useMemo(() => {
     return [...outcomes]
       .filter((outcome) => {
@@ -73,11 +64,7 @@ export function MarketCard({
         const sharesNum = parseFloat(outcome.shares);
         return !isNaN(sharesNum) && sharesNum > 0;
       })
-      .sort((a, b) => {
-        const sharesA = parseFloat(a.shares || "0");
-        const sharesB = parseFloat(b.shares || "0");
-        return sharesB - sharesA; // Sort by volume (shares) from highest to lowest
-      });
+      .sort((a, b) => b.price - a.price);
   }, [outcomes]);
 
   const handleSave = (e: React.MouseEvent) => {
@@ -106,8 +93,6 @@ export function MarketCard({
       style={{ 
         overflow: "visible",
         zIndex: 1,
-        paddingBottom: "5px",
-        marginBottom: "0",
       }}
       onMouseEnter={(e) => {
         // Clear any pending timeout immediately
@@ -129,11 +114,10 @@ export function MarketCard({
         }
 
         const wrapperElement = wrapperRef.current;
-        const rt = e.relatedTarget;
+        const rt = e.relatedTarget as Node | null;
 
         // If relatedTarget is still inside this wrapper, ignore the event
-        // Check if rt is a Node before calling contains
-        if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
+        if (wrapperElement && rt && wrapperElement.contains(rt)) {
           return;
         }
 
@@ -148,7 +132,6 @@ export function MarketCard({
       }}
     >
       <Card
-        ref={cardRef}
         className={cn(
           "cursor-pointer transition-all duration-150",
           "border rounded-lg flex flex-col",
@@ -171,15 +154,6 @@ export function MarketCard({
           e.currentTarget.style.transform = "translateY(-2px)";
         }}
         onMouseLeave={(e) => {
-          const wrapperElement = wrapperRef.current;
-          const rt = e.relatedTarget;
-          
-          // If we're moving to the button, keep the hover styles
-          // Check if rt is a Node before calling contains
-          if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
-            return;
-          }
-          
           e.currentTarget.style.backgroundColor = "var(--card-bg)";
           e.currentTarget.style.borderColor = "var(--card-border)";
           e.currentTarget.style.boxShadow = "var(--shadow-sm)";
@@ -246,38 +220,23 @@ export function MarketCard({
               {question}
             </CardTitle>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {isLive && (
+          {isLive && (
+            <span 
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border shrink-0"
+              style={{
+                backgroundColor: "rgba(239, 68, 68, 0.1)",
+                color: "var(--color-red)",
+                borderColor: "rgba(239, 68, 68, 0.2)",
+                lineHeight: "var(--leading-base)",
+              }}
+            >
               <span 
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border"
-                style={{
-                  backgroundColor: "rgba(239, 68, 68, 0.1)",
-                  color: "var(--color-red)",
-                  borderColor: "rgba(239, 68, 68, 0.2)",
-                  lineHeight: "var(--leading-base)",
-                }}
-              >
-                <span 
-                  className="size-1.5 rounded-full animate-pulse"
-                  style={{ backgroundColor: "var(--color-red)" }}
-                />
-                LIVE
-              </span>
-            )}
-            {isEnded && (
-              <span 
-                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border"
-                style={{
-                  backgroundColor: "rgba(107, 114, 128, 0.1)",
-                  color: "var(--foreground-secondary)",
-                  borderColor: "rgba(107, 114, 128, 0.2)",
-                  lineHeight: "var(--leading-base)",
-                }}
-              >
-                ENDED
-              </span>
-            )}
-          </div>
+                className="size-1.5 rounded-full animate-pulse"
+                style={{ backgroundColor: "var(--color-red)" }}
+              />
+              LIVE
+            </span>
+          )}
         </div>
         
         {/* Category and Market Type */}
@@ -554,66 +513,19 @@ export function MarketCard({
                       marginBottom: idx < (sortedOutcomes.length > 0 ? sortedOutcomes : outcomes).length - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
                     }}
                   >
-                    <div className="space-y-1">
-                      {/* Row 1: Outcome name, percentage, and Yes/No buttons */}
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                          <span 
-                            className="text-body font-medium block truncate flex-1 min-w-0"
-                            style={{ 
-                              color: "var(--foreground)",
-                              lineHeight: "var(--leading-base)",
-                            }}
-                            title={outcome.name}
-                          >
-                            {outcome.name}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
                         <span 
-                          className="text-body font-semibold tabular-nums"
+                          className="text-body font-medium block truncate"
                           style={{ 
                             color: "var(--foreground)",
                             lineHeight: "var(--leading-base)",
                           }}
+                          title={outcome.name}
                         >
-                          {percentage}%
+                          {outcome.name}
                         </span>
-                        <div className="flex gap-1">
-                          <div 
-                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
-                            style={{
-                              backgroundColor: "rgba(39, 174, 96, 0.05)",
-                              borderColor: "var(--color-green)",
-                            }}
-                          >
-                            <span 
-                              className="text-caption font-semibold"
-                              style={{ color: "var(--color-green)" }}
-                            >
-                              Yes
-                            </span>
-                          </div>
-                          <div 
-                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
-                            style={{
-                              backgroundColor: "rgba(239, 68, 68, 0.05)",
-                              borderColor: "var(--color-red)",
-                            }}
-                          >
-                            <span 
-                              className="text-caption font-semibold"
-                              style={{ color: "var(--color-red)" }}
-                            >
-                              No
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    {/* Row 2: Shares count */}
-                    {outcome.shares && (
-                        <div className="flex items-center">
+                        {outcome.shares && (
                           <span 
                             className="text-caption tabular-nums"
                             style={{ 
@@ -623,56 +535,7 @@ export function MarketCard({
                           >
                             {parseFloat(outcome.shares).toLocaleString()} shares
                           </span>
-                        </div>
-                      )}
-                      {/* Progress bar */}
-                      <div 
-                        className="relative h-1 rounded-full overflow-hidden"
-                        style={{ backgroundColor: "var(--color-medium-gray)" }}
-                      >
-                        <div
-                          className="h-full transition-all duration-300 rounded-full"
-                          style={{ 
-                            width: `${percentage}%`,
-                            backgroundColor: isYes ? "var(--color-green)" : "var(--color-primary)",
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          // Regular progress bars for 3+ outcomes (show top 2)
-          <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col">
-            {sortedOutcomes.slice(0, 2).map((outcome, idx) => {
-              const percentage = Math.round(outcome.price * 100);
-              const isYes = outcome.name.toLowerCase() === "yes" || idx === 0;
-              
-              return (
-                <div 
-                  key={outcome.name} 
-                  style={{ 
-                    lineHeight: "var(--leading-base)",
-                    marginBottom: idx < Math.min(sortedOutcomes.length, 2) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
-                  }}
-                >
-                  <div className="space-y-1">
-                    {/* Row 1: Outcome name, percentage, and Yes/No buttons */}
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                        <span 
-                          className="text-body font-medium block truncate flex-1 min-w-0"
-                          style={{ 
-                            color: "var(--foreground)",
-                            lineHeight: "var(--leading-base)",
-                          }}
-                          title={outcome.name}
-                        >
-                          {outcome.name}
-                        </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span 
@@ -716,9 +579,51 @@ export function MarketCard({
                         </div>
                       </div>
                     </div>
-                    {/* Row 2: Shares count */}
-                    {outcome.shares && (
-                      <div className="flex items-center">
+                    <div 
+                      className="relative h-1 rounded-full overflow-hidden"
+                      style={{ backgroundColor: "var(--color-soft-gray)" }}
+                    >
+                      <div
+                        className="h-full transition-all duration-300 rounded-full"
+                        style={{ 
+                          width: `${percentage}%`,
+                          backgroundColor: isYes ? "var(--color-green)" : "var(--color-primary)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          // Regular progress bars for 3+ outcomes (show top 2)
+          <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col">
+            {sortedOutcomes.slice(0, 2).map((outcome, idx) => {
+              const percentage = Math.round(outcome.price * 100);
+              const isYes = outcome.name.toLowerCase() === "yes" || idx === 0;
+              
+              return (
+                <div 
+                  key={outcome.name} 
+                  style={{ 
+                    lineHeight: "var(--leading-base)",
+                    marginBottom: idx < Math.min(sortedOutcomes.length, 2) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
+                  }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <span 
+                        className="text-body font-medium block truncate"
+                        style={{ 
+                          color: "var(--foreground)",
+                          lineHeight: "var(--leading-base)",
+                        }}
+                        title={outcome.name}
+                      >
+                        {outcome.name}
+                      </span>
+                      {outcome.shares && (
                         <span 
                           className="text-caption tabular-nums"
                           style={{ 
@@ -728,12 +633,53 @@ export function MarketCard({
                         >
                           {parseFloat(outcome.shares).toLocaleString()} shares
                         </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span 
+                        className="text-body font-semibold tabular-nums"
+                        style={{ 
+                          color: "var(--foreground)",
+                          lineHeight: "var(--leading-base)",
+                        }}
+                      >
+                        {percentage}%
+                      </span>
+                      <div className="flex gap-1">
+                        <div 
+                          className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                          style={{
+                            backgroundColor: "rgba(39, 174, 96, 0.05)",
+                            borderColor: "var(--color-green)",
+                          }}
+                        >
+                          <span 
+                            className="text-caption font-semibold"
+                            style={{ color: "var(--color-green)" }}
+                          >
+                            Yes
+                          </span>
+                        </div>
+                        <div 
+                          className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                          style={{
+                            backgroundColor: "rgba(239, 68, 68, 0.05)",
+                            borderColor: "var(--color-red)",
+                          }}
+                        >
+                          <span 
+                            className="text-caption font-semibold"
+                            style={{ color: "var(--color-red)" }}
+                          >
+                            No
+                          </span>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                   <div 
-                    className="relative h-1 rounded-full overflow-hidden mt-1"
-                    style={{ backgroundColor: "var(--color-medium-gray)" }}
+                    className="relative h-1 rounded-full overflow-hidden"
+                    style={{ backgroundColor: "var(--color-soft-gray)" }}
                   >
                     <div
                       className="h-full transition-all duration-300 rounded-full"
@@ -870,22 +816,25 @@ export function MarketCard({
           <div 
             className="flex items-center gap-2"
             onMouseEnter={(e) => e.stopPropagation()}
-            onMouseLeave={(e) => e.stopPropagation()}
+            onMouseLeave={(e) => {
+              e.stopPropagation();
+              setHoveredIcon(null);
+            }}
           >
             <button
               onClick={handleSave}
-              className="p-1.5 rounded transition-colors duration-100"
+              className="p-1.5 rounded transition-all duration-150"
               style={{ 
                 color: "var(--foreground-secondary)",
-                backgroundColor: "transparent",
+                backgroundColor: hoveredIcon === 'save' ? "var(--color-soft-gray)" : "transparent",
               }}
               onMouseEnter={(e) => {
                 e.stopPropagation();
-                e.currentTarget.style.backgroundColor = "var(--color-soft-gray)";
+                setHoveredIcon('save');
               }}
               onMouseLeave={(e) => {
                 e.stopPropagation();
-                e.currentTarget.style.backgroundColor = "transparent";
+                setHoveredIcon(null);
               }}
               aria-label="Save market"
             >
@@ -906,18 +855,18 @@ export function MarketCard({
             </button>
             <button
               onClick={handleShare}
-              className="p-1.5 rounded transition-colors duration-100"
+              className="p-1.5 rounded transition-all duration-150"
               style={{ 
                 color: "var(--foreground-secondary)",
-                backgroundColor: "transparent",
+                backgroundColor: hoveredIcon === 'share' ? "var(--color-soft-gray)" : "transparent",
               }}
               onMouseEnter={(e) => {
                 e.stopPropagation();
-                e.currentTarget.style.backgroundColor = "var(--color-soft-gray)";
+                setHoveredIcon('share');
               }}
               onMouseLeave={(e) => {
                 e.stopPropagation();
-                e.currentTarget.style.backgroundColor = "transparent";
+                setHoveredIcon(null);
               }}
               aria-label="Share market"
             >
@@ -942,11 +891,12 @@ export function MarketCard({
     </Card>
     
     {/* Start AI Debate Button - slides out from bottom on hover */}
-    <Link
-      href={`/market/${id}/debate`}
+    <button
       data-role="start-ai-debate"
       onClick={(e) => {
         e.stopPropagation();
+        // TODO: Navigate to debate page
+        window.location.href = `/market/${id}/debate`;
       }}
       onMouseEnter={(e) => {
         e.stopPropagation();
@@ -957,14 +907,6 @@ export function MarketCard({
         }
         setIsCardHovered(true);
         e.currentTarget.style.backgroundColor = "var(--nav-bg)";
-        
-        // Apply card hover styles when button is hovered
-        if (cardRef.current) {
-          cardRef.current.style.backgroundColor = "var(--card-bg-hover)";
-          cardRef.current.style.borderColor = "rgba(0, 0, 0, 0.15)";
-          cardRef.current.style.boxShadow = "var(--shadow-md)";
-          cardRef.current.style.transform = "translateY(-2px)";
-        }
       }}
       onMouseLeave={(e) => {
         e.stopPropagation();
@@ -976,53 +918,40 @@ export function MarketCard({
         }
 
         const wrapperElement = wrapperRef.current;
-        const rt = e.relatedTarget;
+        const rt = e.relatedTarget as Node | null;
 
         // If we moved back to the wrapper/card, keep it hovered
-        // Check if rt is a Node before calling contains
-        if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
+        if (wrapperElement && rt && wrapperElement.contains(rt)) {
           return;
         }
 
-        // Otherwise we left both button and card → hide and remove card hover styles
+        // Otherwise we left both button and card → hide
         hoverTimeoutRef.current = setTimeout(() => {
           setIsCardHovered(false);
           if (wrapperElement) {
             wrapperElement.style.zIndex = "1";
           }
-          // Remove card hover styles
-          if (cardRef.current) {
-            cardRef.current.style.backgroundColor = "var(--card-bg)";
-            cardRef.current.style.borderColor = "var(--card-border)";
-            cardRef.current.style.boxShadow = "var(--shadow-sm)";
-            cardRef.current.style.transform = "translateY(0)";
-          }
           hoverTimeoutRef.current = null;
         }, 30);
       }}
-      className="absolute left-0 right-0 transition-all duration-300 ease-out block text-center no-underline"
+      className="absolute left-0 right-0 transition-all duration-300 ease-out"
       style={{
-        bottom: isCardHovered ? "-10px" : "5px",
-        transform: isCardHovered ? "translateY(0)" : "translateY(100%)",
+        bottom: isCardHovered ? "8px" : "-48px",
         opacity: isCardHovered ? 1 : 0,
         backgroundColor: "var(--color-charcoal)",
         color: "var(--color-white)",
         padding: "10px 6px",
-        borderRadius: "0.5rem",
-        borderTopLeftRadius: "0",
-        borderTopRightRadius: "0",
+        borderRadius: "1.5rem",
         fontSize: "var(--text-base)",
         fontWeight: 500,
         lineHeight: "var(--leading-base)",
         boxShadow: "var(--shadow-md)",
         pointerEvents: isCardHovered ? "auto" : "none",
-        cursor: "pointer",
         zIndex: 20,
-        textDecoration: "none",
       }}
     >
       Start AI Debate
-    </Link>
+    </button>
     </div>
   );
 }

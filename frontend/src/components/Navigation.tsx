@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
 
 const categories = [
   "Trending",
@@ -22,22 +20,6 @@ const categories = [
   "World",
   "Economy",
   "Elections",
-  "Mentions",
-  "More",
-];
-
-// Topic chips - these would typically come from the active category
-const topicChips = [
-  "All",
-  "Trump",
-  "Epstein",
-  "Venezuela",
-  "China",
-  "Google Search",
-  "Bitcoin",
-  "Ethereum",
-  "US Elections",
-  "Fed Rates",
 ];
 
 const categorySubtopics: Record<string, string[]> = {
@@ -74,18 +56,7 @@ export function Navigation({
   onSubtopicChange,
   onSearchChange,
 }: NavigationProps) {
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
-  const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
-
-  // Helper function to get route for category
-  const getCategoryRoute = (category: string) => {
-    const normalized = category.toLowerCase();
-    return normalized === "trending" ? "/" : `/${normalized}`;
-  };
 
   return (
     <nav 
@@ -95,217 +66,110 @@ export function Navigation({
       )}
       style={{
         backgroundColor: "var(--nav-bg)",
-        boxShadow: "var(--shadow-nav)",
-        backdropFilter: "blur(10px)",
+        boxShadow: "var(--shadow-nav)"
       }}
     >
-      {/* Top Row - Logo, Actions */}
+      {/* Main Header */}
       <div className="container mx-auto px-4">
-        <div className="flex h-16 items-center justify-between gap-6">
-          {/* Left Section - Logo + Flag */}
-          <Link 
-            href="/" 
-            className="flex items-center gap-2 shrink-0"
-            style={{ minWidth: "fit-content" }}
-          >
-            {/* Small square icon */}
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: "var(--color-primary)",
+        <div className="flex h-16 items-center justify-between gap-4">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-2">
+            <span 
+              className="text-h2"
+              style={{ 
+                color: "var(--nav-text)",
+                lineHeight: "var(--leading-tight)",
               }}
             >
-              <span 
-                className="text-white font-bold"
-                style={{ fontSize: "0.875rem" }}
-              >
-                PD
-              </span>
-            </div>
-            {/* Title and Flag - on same line */}
-            <div className="flex items-center gap-1.5">
-              <span 
-                className="font-bold"
-                style={{ 
-                  color: "var(--nav-text)",
-                  fontSize: "var(--text-lg)",
-                  lineHeight: "var(--leading-tight)",
-                }}
-              >
-                PolyDebate
-              </span>
-              {/* Country Flag - bigger, right next to PolyDebate */}
-              <span style={{ fontSize: "1.25rem", lineHeight: "1" }}>🇺🇸</span>
-            </div>
+              PolyDebate
+            </span>
           </Link>
 
-          {/* Right Section - Actions */}
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Desktop Actions */}
-            <div className="hidden md:flex items-center gap-2">
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                style={{ 
-                  color: "rgba(255, 255, 255, 0.9)", 
-                  border: "none",
-                  backgroundColor: "transparent",
-                }}
-                className="hover:bg-white/10 transition-colors duration-150"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                }}
-              >
-                How it works
-              </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                style={{ 
-                  color: "rgba(255, 255, 255, 0.9)",
-                  backgroundColor: "transparent",
-                }}
-                className="hover:bg-white/10 transition-colors duration-150"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                }}
-              >
-                Log In
-              </Button>
-              <Button
-                size="sm"
-                className="text-white transition-all duration-150"
-                style={{
-                  backgroundColor: "var(--color-primary)",
-                  boxShadow: "var(--shadow-primary)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--color-primary)";
-                }}
-              >
-                Sign Up
-              </Button>
-            </div>
-            {/* Mobile Menu Icon */}
-            <button
-              className="md:hidden p-2 rounded hover:bg-white/10 transition-colors"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ color: "var(--nav-text)" }}
-              aria-label="Menu"
+          {/* Actions */}
+          <div className="flex items-center gap-2">
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              style={{ color: "var(--nav-text)", border: "none" }}
+              className="hover:bg-white/10"
             >
-              <svg
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              </svg>
-            </button>
+              How it works
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              style={{ color: "var(--nav-text)" }}
+              className="hover:bg-white/10"
+            >
+              Log In
+            </Button>
+            <Button
+              size="sm"
+              className="text-white transition-all duration-150"
+              style={{
+                backgroundColor: "var(--color-primary)",
+                boxShadow: "var(--shadow-primary)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.backgroundColor = "var(--color-primary)";
+              }}
+            >
+              Sign Up
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row - Tabs & Topics */}
+      {/* Navbar Extension - Categories, Search, and Subtopics */}
       <div 
-        className="border-t relative"
+        className="border-t"
         style={{ 
           backgroundColor: "var(--nav-bg-extension)",
           borderColor: "rgba(255, 255, 255, 0.1)",
-          zIndex: 1,
-          overflow: "visible",
         }}
       >
-        <div className="container mx-auto px-4">
-          {/* Main Tabs Row */}
-          <div 
-            className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-hide"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-          >
-            {categories.map((category) => {
-              const categoryLower = category.toLowerCase();
-              const route = getCategoryRoute(categoryLower);
-              const isActive = activeCategory === categoryLower;
-              const isTrending = category === "Trending";
-              return (
-                <Link
-                  key={category}
-                  href={route}
+        <div className="container mx-auto px-4 py-3 space-y-3">
+          {/* Search and Categories Row */}
+          <div className="flex items-center gap-4">
+            {/* Search Bar */}
+            <div className="flex-1 max-w-md">
+              <div className="relative flex items-center gap-2">
+                <Input
+                  type="search"
+                  placeholder="Search polydebate"
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
                   className={cn(
-                    "px-4 py-2 text-caption font-medium whitespace-nowrap",
-                    "transition-colors duration-150",
-                    "border-b-2",
-                    "flex items-center gap-1.5"
+                    "flex-1 bg-white border-black/10",
+                    "text-black",
+                    "transition-all duration-150"
                   )}
                   style={{
-                    color: isActive ? "var(--nav-text)" : "rgba(255, 255, 255, 0.7)",
-                    lineHeight: "var(--leading-base)",
-                    borderColor: isActive ? "var(--color-primary)" : "transparent",
-                    textDecoration: "none",
+                    "--tw-placeholder-opacity": "1",
+                    color: "var(--foreground)",
+                  } as React.CSSProperties & { "--tw-placeholder-opacity": string }}
+                />
+                <Button
+                  size="sm"
+                  className={cn(
+                    "h-9 px-4 text-white",
+                    "transition-all duration-150"
+                  )}
+                  style={{
+                    backgroundColor: "var(--color-primary)",
+                    boxShadow: "var(--shadow-primary)",
                   }}
                   onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.95)";
-                    }
+                    e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-primary-hover)";
                   }}
                   onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
-                    }
+                    e.currentTarget.style.backgroundColor = "var(--color-primary)";
+                    e.currentTarget.style.boxShadow = "var(--shadow-primary)";
                   }}
-                >
-                  {isTrending && (
-                    <svg
-                      className="size-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                      />
-                    </svg>
-                  )}
-                  {category}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Topic Chips Row - Hide for breaking category */}
-          {activeCategory !== "breaking" && (
-          <div className="flex items-center gap-3 py-2 overflow-x-auto scrollbar-hide" style={{ position: "relative", zIndex: 2 }}>
-            {/* Left Side - Search Bar, Filter, Bookmark */}
-            <div className="flex items-center gap-2 shrink-0" style={{ position: "relative", zIndex: 30 }}>
-              {/* Big Search Bar */}
-              <div 
-                className="relative flex items-center shrink-0"
-                style={{ width: "400px", minWidth: "300px", zIndex: 30 }}
-              >
-                {/* Search Icon */}
-                <div 
-                  className="absolute left-3 pointer-events-none"
-                  style={{ color: "rgba(255, 255, 255, 0.5)" }}
                 >
                   <svg
                     className="size-4"
@@ -320,139 +184,67 @@ export function Navigation({
                       d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                     />
                   </svg>
-                </div>
-                {/* Input */}
-                <Input
-                  type="search"
-                  placeholder="Search polydebate"
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className={cn(
-                    "w-full pl-10 pr-10 h-9",
-                    "bg-white/10 border-white/20 text-white",
-                    "placeholder:text-white/50",
-                    "focus:bg-white/15 focus:border-white/25",
-                    "transition-all duration-150",
-                    "focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  )}
-                  style={{
-                    borderRadius: "0.5rem",
-                    position: "relative",
-                    zIndex: 31,
-                    borderWidth: "1px",
-                    boxShadow: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.25)";
-                    e.currentTarget.style.borderWidth = "1px";
-                    e.currentTarget.style.boxShadow = "none";
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.setProperty("--tw-ring-width", "0px");
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-                  }}
-                />
-                {/* Keyboard Hint */}
-                <div 
-                  className="absolute right-3 pointer-events-none flex items-center gap-1"
-                  style={{ color: "rgba(255, 255, 255, 0.4)" }}
-                >
-                  <kbd 
-                    className="px-1.5 py-0.5 text-xs rounded border"
-                    style={{
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      borderColor: "rgba(255, 255, 255, 0.2)",
-                    }}
-                  >
-                    /
-                  </kbd>
-                </div>
+                </Button>
               </div>
-              {/* Filter Icon */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                style={{ color: "rgba(255, 255, 255, 0.8)" }}
-                aria-label="Filter"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                  />
-                </svg>
-              </button>
-              {/* Bookmark Icon */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                style={{ color: "rgba(255, 255, 255, 0.8)" }}
-                aria-label="Bookmarks"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-              </button>
             </div>
 
-            {/* Right Side - Topic Chips */}
-            <div 
-              className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto scrollbar-hide"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
-              {displayTopics.map((topic) => {
-                const isActive = activeSubtopic === topic;
-                const handleClick = () => {
-                  onSubtopicChange(topic);
-                  // Update URL with subtopic query param
-                  const params = new URLSearchParams(searchParams?.toString() || "");
-                  if (topic === "All") {
-                    params.delete("subtopic");
-                  } else {
-                    params.set("subtopic", topic);
-                  }
-                  const queryString = params.toString();
-                  router.push(`${pathname}${queryString ? `?${queryString}` : ""}`);
-                };
+            {/* Category Navigation */}
+            <div className="flex items-center gap-1 overflow-x-auto flex-1">
+              {categories.map((category) => {
+                const isActive = activeCategory === category.toLowerCase();
                 return (
                   <button
-                    key={topic}
-                    onClick={handleClick}
+                    key={category}
+                    onClick={() => onCategoryChange(category.toLowerCase())}
                     className={cn(
-                      "h-7 px-3 text-xs font-medium whitespace-nowrap rounded-full",
-                      "transition-all duration-150"
+                      "px-4 py-2 text-caption font-medium whitespace-nowrap",
+                      "transition-colors duration-150",
+                      "border-b-2",
+                      isActive
+                        ? "border-[var(--color-cyan)]"
+                        : "border-transparent hover:text-white"
                     )}
+                    style={{
+                      color: isActive ? "var(--nav-text)" : "rgba(255, 255, 255, 0.7)",
+                      lineHeight: "var(--leading-base)",
+                    }}
+                  >
+                    {category}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Subtopics Filter Tags */}
+          {subtopics.length > 0 && (
+            <div className="flex flex-wrap gap-2">
+              {subtopics.map((subtopic) => {
+                const isActive = activeSubtopic === subtopic;
+                return (
+                  <Button
+                    key={subtopic}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onSubtopicChange(subtopic)}
+                    className="h-7 px-3 text-caption font-medium transition-all duration-150 border"
                     style={isActive ? {
                       backgroundColor: "var(--color-primary)",
                       color: "var(--color-white)",
+                      borderColor: "var(--color-primary)",
                       boxShadow: "var(--shadow-primary)",
+                      lineHeight: "var(--leading-base)",
                     } : {
                       backgroundColor: "rgba(255, 255, 255, 0.1)",
                       color: "rgba(255, 255, 255, 0.8)",
+                      borderColor: "rgba(255, 255, 255, 0.2)",
+                      lineHeight: "var(--leading-base)",
                     }}
                     onMouseEnter={(e) => {
                       if (!isActive) {
                         e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
                         e.currentTarget.style.color = "var(--nav-text)";
+                        e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.3)";
                       } else {
                         e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
                       }
@@ -461,20 +253,21 @@ export function Navigation({
                       if (!isActive) {
                         e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
                         e.currentTarget.style.color = "rgba(255, 255, 255, 0.8)";
+                        e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
                       } else {
                         e.currentTarget.style.backgroundColor = "var(--color-primary)";
                       }
                     }}
                   >
-                    {topic}
-                  </button>
+                    {subtopic}
+                  </Button>
                 );
               })}
             </div>
-          </div>
           )}
         </div>
       </div>
     </nav>
   );
 }
+
