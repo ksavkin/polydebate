@@ -14,6 +14,7 @@ from datetime import datetime
 import logging
 
 from config import config
+from database import init_db, create_all_tables
 
 # Setup logging
 logging.basicConfig(
@@ -33,6 +34,16 @@ def create_app():
 
     # Ensure storage directories exist
     config.ensure_directories()
+
+    # Initialize database
+    try:
+        logger.info(f"Initializing database: {config.DATABASE_URL}")
+        init_db(config.DATABASE_URL, echo=config.DEBUG)
+        create_all_tables()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Continue anyway for development
 
     # Validate configuration
     try:
