@@ -102,7 +102,8 @@ class OpenRouterService:
 
                 logger.info(f"Filtering results: {len(models)} models accepted, {len(filtered_by_price)} filtered by price, {filtered_by_whitelist} filtered by whitelist")
                 if filtered_by_price:
-                    logger.info(f"Models filtered by price (>${max_price_per_million}): {[f['id'] + f' (${f['price']:.2f})' for f in filtered_by_price]}")
+                    filtered_names = [f"{item['id']} (${item['price']:.2f})" for item in filtered_by_price]
+                    logger.info(f"Models filtered by price (>${max_price_per_million}): {filtered_names}")
 
                 return {
                     'models': models,
