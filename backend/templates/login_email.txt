@@ -1,0 +1,23 @@
+========================================
+Login to {app_name}
+========================================
+
+Hi there,
+
+You requested to log in to your account. Please enter the verification code below:
+
+----------------------------------------
+Verification Code: {code}
+----------------------------------------
+
+This code expires in {expiry_minutes} minutes.
+
+SECURITY NOTICE:
+If you didn't request this code, someone may be trying to access your account.
+Please ignore this email and consider updating your security settings.
+
+----------------------------------------
+
+Need help? Contact us at {support_email}
+
+© 2024 {app_name}. All rights reserved.

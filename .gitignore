@@ -65,6 +65,13 @@ build/
 
 # backend
 /backend/.venv
+/backend/venv/
+venv/
+.venv/
 /backend/.env
 /backend/storage/polydebate.db
 /backend/storage/audio
+
+# IDE
+.vscode/
+.idea/
