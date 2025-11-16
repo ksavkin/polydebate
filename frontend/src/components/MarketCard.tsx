@@ -56,6 +56,14 @@ export function MarketCard({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
+  // Check if market has ended
+  const isEnded = useMemo(() => {
+    if (!end_date) return false;
+    const endDate = new Date(end_date);
+    const now = new Date();
+    return now > endDate;
+  }, [end_date]);
+
   // Filter out outcomes with 0 shares and sort by volume (shares) from highest to lowest
   const sortedOutcomes = useMemo(() => {
     return [...outcomes]
@@ -238,23 +246,38 @@ export function MarketCard({
               {question}
             </CardTitle>
           </div>
-          {isLive && (
-            <span 
-              className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border shrink-0"
-              style={{
-                backgroundColor: "rgba(239, 68, 68, 0.1)",
-                color: "var(--color-red)",
-                borderColor: "rgba(239, 68, 68, 0.2)",
-                lineHeight: "var(--leading-base)",
-              }}
-            >
+          <div className="flex items-center gap-2 shrink-0">
+            {isLive && (
               <span 
-                className="size-1.5 rounded-full animate-pulse"
-                style={{ backgroundColor: "var(--color-red)" }}
-              />
-              LIVE
-            </span>
-          )}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border"
+                style={{
+                  backgroundColor: "rgba(239, 68, 68, 0.1)",
+                  color: "var(--color-red)",
+                  borderColor: "rgba(239, 68, 68, 0.2)",
+                  lineHeight: "var(--leading-base)",
+                }}
+              >
+                <span 
+                  className="size-1.5 rounded-full animate-pulse"
+                  style={{ backgroundColor: "var(--color-red)" }}
+                />
+                LIVE
+              </span>
+            )}
+            {isEnded && (
+              <span 
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-caption font-medium whitespace-nowrap border"
+                style={{
+                  backgroundColor: "rgba(107, 114, 128, 0.1)",
+                  color: "var(--foreground-secondary)",
+                  borderColor: "rgba(107, 114, 128, 0.2)",
+                  lineHeight: "var(--leading-base)",
+                }}
+              >
+                ENDED
+              </span>
+            )}
+          </div>
         </div>
         
         {/* Category and Market Type */}
@@ -531,19 +554,66 @@ export function MarketCard({
                       marginBottom: idx < (sortedOutcomes.length > 0 ? sortedOutcomes : outcomes).length - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
                     }}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex-1 min-w-0">
+                    <div className="space-y-1">
+                      {/* Row 1: Outcome name, percentage, and Yes/No buttons */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                          <span 
+                            className="text-body font-medium block truncate flex-1 min-w-0"
+                            style={{ 
+                              color: "var(--foreground)",
+                              lineHeight: "var(--leading-base)",
+                            }}
+                            title={outcome.name}
+                          >
+                            {outcome.name}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
                         <span 
-                          className="text-body font-medium block truncate"
+                          className="text-body font-semibold tabular-nums"
                           style={{ 
                             color: "var(--foreground)",
                             lineHeight: "var(--leading-base)",
                           }}
-                          title={outcome.name}
                         >
-                          {outcome.name}
+                          {percentage}%
                         </span>
-                        {outcome.shares && (
+                        <div className="flex gap-1">
+                          <div 
+                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                            style={{
+                              backgroundColor: "rgba(39, 174, 96, 0.05)",
+                              borderColor: "var(--color-green)",
+                            }}
+                          >
+                            <span 
+                              className="text-caption font-semibold"
+                              style={{ color: "var(--color-green)" }}
+                            >
+                              Yes
+                            </span>
+                          </div>
+                          <div 
+                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                            style={{
+                              backgroundColor: "rgba(239, 68, 68, 0.05)",
+                              borderColor: "var(--color-red)",
+                            }}
+                          >
+                            <span 
+                              className="text-caption font-semibold"
+                              style={{ color: "var(--color-red)" }}
+                            >
+                              No
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Row 2: Shares count */}
+                    {outcome.shares && (
+                        <div className="flex items-center">
                           <span 
                             className="text-caption tabular-nums"
                             style={{ 
@@ -553,7 +623,56 @@ export function MarketCard({
                           >
                             {parseFloat(outcome.shares).toLocaleString()} shares
                           </span>
-                        )}
+                        </div>
+                      )}
+                      {/* Progress bar */}
+                      <div 
+                        className="relative h-1 rounded-full overflow-hidden"
+                        style={{ backgroundColor: "var(--color-medium-gray)" }}
+                      >
+                        <div
+                          className="h-full transition-all duration-300 rounded-full"
+                          style={{ 
+                            width: `${percentage}%`,
+                            backgroundColor: isYes ? "var(--color-green)" : "var(--color-primary)",
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          // Regular progress bars for 3+ outcomes (show top 2)
+          <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col">
+            {sortedOutcomes.slice(0, 2).map((outcome, idx) => {
+              const percentage = Math.round(outcome.price * 100);
+              const isYes = outcome.name.toLowerCase() === "yes" || idx === 0;
+              
+              return (
+                <div 
+                  key={outcome.name} 
+                  style={{ 
+                    lineHeight: "var(--leading-base)",
+                    marginBottom: idx < Math.min(sortedOutcomes.length, 2) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
+                  }}
+                >
+                  <div className="space-y-1">
+                    {/* Row 1: Outcome name, percentage, and Yes/No buttons */}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0 flex items-center gap-1.5">
+                        <span 
+                          className="text-body font-medium block truncate flex-1 min-w-0"
+                          style={{ 
+                            color: "var(--foreground)",
+                            lineHeight: "var(--leading-base)",
+                          }}
+                          title={outcome.name}
+                        >
+                          {outcome.name}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 shrink-0">
                         <span 
@@ -597,51 +716,9 @@ export function MarketCard({
                         </div>
                       </div>
                     </div>
-                    <div 
-                      className="relative h-1 rounded-full overflow-hidden"
-                      style={{ backgroundColor: "var(--color-soft-gray)" }}
-                    >
-                      <div
-                        className="h-full transition-all duration-300 rounded-full"
-                        style={{ 
-                          width: `${percentage}%`,
-                          backgroundColor: isYes ? "var(--color-green)" : "var(--color-primary)",
-                        }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        ) : (
-          // Regular progress bars for 3+ outcomes (show top 2)
-          <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col">
-            {sortedOutcomes.slice(0, 2).map((outcome, idx) => {
-              const percentage = Math.round(outcome.price * 100);
-              const isYes = outcome.name.toLowerCase() === "yes" || idx === 0;
-              
-              return (
-                <div 
-                  key={outcome.name} 
-                  style={{ 
-                    lineHeight: "var(--leading-base)",
-                    marginBottom: idx < Math.min(sortedOutcomes.length, 2) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
-                  }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <span 
-                        className="text-body font-medium block truncate"
-                        style={{ 
-                          color: "var(--foreground)",
-                          lineHeight: "var(--leading-base)",
-                        }}
-                        title={outcome.name}
-                      >
-                        {outcome.name}
-                      </span>
-                      {outcome.shares && (
+                    {/* Row 2: Shares count */}
+                    {outcome.shares && (
+                      <div className="flex items-center">
                         <span 
                           className="text-caption tabular-nums"
                           style={{ 
@@ -651,53 +728,12 @@ export function MarketCard({
                         >
                           {parseFloat(outcome.shares).toLocaleString()} shares
                         </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span 
-                        className="text-body font-semibold tabular-nums"
-                        style={{ 
-                          color: "var(--foreground)",
-                          lineHeight: "var(--leading-base)",
-                        }}
-                      >
-                        {percentage}%
-                      </span>
-                      <div className="flex gap-1">
-                        <div 
-                          className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
-                          style={{
-                            backgroundColor: "rgba(39, 174, 96, 0.05)",
-                            borderColor: "var(--color-green)",
-                          }}
-                        >
-                          <span 
-                            className="text-caption font-semibold"
-                            style={{ color: "var(--color-green)" }}
-                          >
-                            Yes
-                          </span>
-                        </div>
-                        <div 
-                          className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
-                          style={{
-                            backgroundColor: "rgba(239, 68, 68, 0.05)",
-                            borderColor: "var(--color-red)",
-                          }}
-                        >
-                          <span 
-                            className="text-caption font-semibold"
-                            style={{ color: "var(--color-red)" }}
-                          >
-                            No
-                          </span>
-                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
                   <div 
-                    className="relative h-1 rounded-full overflow-hidden"
-                    style={{ backgroundColor: "var(--color-soft-gray)" }}
+                    className="relative h-1 rounded-full overflow-hidden mt-1"
+                    style={{ backgroundColor: "var(--color-medium-gray)" }}
                   >
                     <div
                       className="h-full transition-all duration-300 rounded-full"

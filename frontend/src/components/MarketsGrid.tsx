@@ -104,8 +104,8 @@ export function MarketsGrid({
           ref={observerTarget} 
           className="h-32 flex flex-col items-center justify-center gap-3 mt-8"
         >
-          {isLoading && (
-            <div className="flex flex-col items-center gap-3 animate-in">
+          {isLoading ? (
+            <div className="flex flex-col items-center gap-3">
               <LoadingSpinner size="md" />
               <div 
                 className="text-caption" 
@@ -117,6 +117,8 @@ export function MarketsGrid({
                 Loading more markets...
               </div>
             </div>
+          ) : (
+            <div style={{ height: "1px" }} aria-hidden="true" />
           )}
         </div>
       )}
