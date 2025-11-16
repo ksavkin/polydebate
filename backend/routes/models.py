@@ -17,7 +17,7 @@ def get_models():
         asyncio.set_event_loop(loop)
         try:
             result = loop.run_until_complete(
-                openrouter_service.get_available_models(max_price_per_million=0.5)
+                openrouter_service.get_available_models(max_price_per_million=15.0)
             )
             return jsonify(result), 200
         finally:
