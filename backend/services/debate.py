@@ -7,6 +7,7 @@ from typing import List, Dict, Optional
 from datetime import datetime
 from services.polymarket import polymarket_service
 from services.openrouter import openrouter_service
+from services.elevenlabs import elevenlabs_service
 from models.debate import Debate
 from models.message import Message
 
@@ -175,6 +176,25 @@ class DebateService:
                         text=response['content'],
                         predictions={}  # Will be populated in Phase 5 with prompts
                     )
+
+                    # Generate audio for this message
+                    try:
+                        logger.info(f"Generating audio for message {message.message_id}")
+                        audio_result = await elevenlabs_service.generate_speech(
+                            text=message.text,
+                            model_id=model.model_id,
+                            message_id=message.message_id
+                        )
+
+                        if audio_result.get('audio_url'):
+                            message.audio_url = audio_result['audio_url']
+                            message.audio_duration = audio_result.get('audio_duration', 0)
+                            logger.info(f"Audio generated successfully: {audio_result['audio_url']}")
+                        elif audio_result.get('error'):
+                            logger.warning(f"Audio generation failed: {audio_result['error']}")
+                    except Exception as audio_error:
+                        logger.warning(f"Failed to generate audio: {audio_error}")
+                        # Continue without audio - it's not critical
 
                     # Store message
                     debate.add_message(message)

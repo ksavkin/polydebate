@@ -57,9 +57,6 @@ build/
 /frontend/next-env.d.ts
 
 # frontend 
-/frontend/API_SPECIFICATION.md
-/frontend/implementation_plan.md
-/frontend/design.md
 .cursor/
 /frontend/node_modules
 /frontend/.cursor
@@ -68,6 +65,13 @@ build/
 
 # backend
 /backend/.venv
+/backend/venv/
+venv/
+.venv/
+/backend/.env
+/backend/storage/polydebate.db
+/backend/storage/audio
 
-
-backend/storage/polydebate.db
+# IDE
+.vscode/
+.idea/

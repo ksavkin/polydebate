@@ -152,10 +152,9 @@ Market Description: {market_description}
 
 Instructions:
 - This is round {round_num} of the debate
-- Provide a thoughtful, analytical argument about the market outcome
-- Consider both sides of the argument
-- Reference specific facts, trends, or reasoning
-- Be concise but substantive (2-4 paragraphs)
+- Provide your argument in EXACTLY ONE SENTENCE
+- Be concise and substantive
+- Make a clear point about the market outcome
 - Build upon or respond to previous arguments if applicable"""
 
         # Build messages array
@@ -191,7 +190,7 @@ Instructions:
                 "model": model_id,
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 1000
+                "max_tokens": 100
             }
 
             async with session.post(

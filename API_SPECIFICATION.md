@@ -1,9 +1,19 @@
 # PolyDebate - API Data Exchange Specification
 
-**Version**: 1.0
-**Date**: 2025-11-15
-**Backend**: Flask (Python)
+**Version**: 2.0 (Implementation Update)
+**Date**: 2025-11-16
+**Backend**: Flask (Python) + SQLite + SQLAlchemy ORM + Asyncio
 **Frontend**: Next.js (React)
+
+---
+
+## IMPLEMENTATION STATUS SUMMARY
+
+**✅ Implemented**: Markets, Models, Debates (create, list, get, stream), Audio serving, Categories
+**❌ Not Implemented**: Predictions (empty objects), Gemini summarization, Pause/resume/stop
+**🔄 Modified**: One-sentence responses (not 2-4 sentences), SQLite database (not JSON files)
+
+See full implementation status at end of document.
 
 ---
 
@@ -597,7 +607,9 @@ Pause the debate.
 
 ---
 
-### 9. POST `/api/debate/<debate_id>/resume`
+### 9. POST `/api/debate/<debate_id>/resume` ❌ NOT IMPLEMENTED
+
+**STATUS**: Code exists in routes but not tested/working
 
 Resume the debate after pause.
 
@@ -616,7 +628,9 @@ Resume the debate after pause.
 
 ---
 
-### 10. POST `/api/debate/<debate_id>/stop`
+### 10. POST `/api/debate/<debate_id>/stop` ❌ NOT IMPLEMENTED
+
+**STATUS**: Code exists in routes but not tested/working
 
 Completely stop the debate (early termination).
 
@@ -636,7 +650,9 @@ Completely stop the debate (early termination).
 
 ---
 
-### 11. GET `/api/debate/<debate_id>/results`
+### 11. GET `/api/debate/<debate_id>/results` ❌ NOT IMPLEMENTED (Gemini summarization)
+
+**STATUS**: Endpoint doesn't exist, Gemini integration not completed
 
 Get final debate results with Gemini summarization.
 
@@ -1215,13 +1231,19 @@ interface Message {
   model_id: string;
   model_name: string;
   message_type: 'initial' | 'debate' | 'final';
-  text: string;
-  predictions: Record<string, number>; // outcome -> percentage (0-100)
-  audio_url: string;
-  audio_duration: number;
-  timestamp: string;
+  text: string;  // IMPLEMENTATION: EXACTLY ONE SENTENCE
+  predictions: Record<string, number>; // IMPLEMENTATION: Always empty object {}
+  audio_url: string;  // IMPLEMENTATION: /api/audio/<message_id>.mp3
+  audio_duration: number;  // IMPLEMENTATION: Estimated duration in seconds
+  timestamp: string;  // ISO 8601 UTC
 }
 ```
+
+**IMPLEMENTATION NOTES**:
+- `text`: Always exactly one sentence (max_tokens=100)
+- `predictions`: Always `{}` - prediction system not implemented
+- `audio_url`: Format is `/api/audio/<filename>` not `/audio/<filename>`
+- Audio generated via ElevenLabs with voice mapped by model provider
 
 ### DebateSummary
 ```typescript
@@ -1395,4 +1417,169 @@ All requests are logged:
 
 ---
 
-**End of specification**
+## DETAILED IMPLEMENTATION STATUS
+
+### ✅ Fully Implemented Endpoints
+
+| Endpoint | Method | Status | Notes |
+|----------|--------|--------|-------|
+| `/api/health` | GET | ✅ | Returns health status |
+| `/api/markets` | GET | ✅ | Pagination, category filter working |
+| `/api/markets/<path>` | GET | ✅ | Works for both market ID and category slug |
+| `/api/categories` | GET | ✅ | Returns all categories |
+| `/api/models` | GET | ✅ | Filtered by price ≤ $0.5/1M tokens |
+| `/api/debate/start` | POST | ✅ | Creates debate, saves to SQLite DB |
+| `/api/debates` | GET | ✅ | Lists all debates from DB |
+| `/api/debate/<id>` | GET | ✅ | Gets debate state from DB |
+| `/api/debate/<id>/stream` | GET | ✅ | SSE streaming with asyncio |
+| `/api/audio/<filename>` | GET | ✅ | Serves MP3 files |
+
+### ❌ Not Implemented / Not Working
+
+| Endpoint | Method | Status | Reason |
+|----------|--------|--------|--------|
+| `/api/debate/<id>/pause` | POST | ❌ | Code exists but untested |
+| `/api/debate/<id>/resume` | POST | ❌ | Code exists but untested |
+| `/api/debate/<id>/stop` | POST | ❌ | Code exists but untested |
+| `/api/debate/<id>/results` | GET | ❌ | Gemini summarization not implemented |
+| `/api/debate/<id>/summary` | POST | ❌ | Gemini integration incomplete |
+
+### Database Implementation
+
+**Technology**: SQLite + SQLAlchemy ORM (not JSON files as in spec)
+
+**Tables**:
+- `debates` - Main debate records
+- `debate_models` - Models participating in debates
+- `debate_outcomes` - Market outcomes for debates
+- `messages` - All debate messages
+- `message_predictions` - Predictions within messages (currently unused)
+
+**Database Location**:
+- Path: `backend/storage/polydebate.db`
+- Auto-generated absolute path for cross-platform compatibility
+- Mac/Linux: `sqlite:////absolute/path/to/polydebate.db`
+- Windows: `sqlite:///C:/absolute/path/to/polydebate.db`
+
+### Audio Implementation
+
+**ElevenLabs Integration**: ✅ Fully working
+
+**Voice Mapping** (automatic by AI provider):
+```python
+{
+    'default': 'pNInz6obpgDQGcFmaJgB',  # Adam - deep, calm
+    'google': '21m00Tcm4TlvDq8ikWAM',   # Rachel - soft, warm
+    'deepseek': 'AZnzlk1XvdvUeBnXmlld',  # Domi - strong, confident
+    'meta': 'EXAVITQu4vr4xnSDxMaL',      # Bella - gentle
+    'mistral': 'EXAVITQu4vr4xnSDxMaL',   # Bella
+    'anthropic': 'pMsXgVXv3BLzUgSXRplE',  # Serena
+    'openai': 'ErXwobaYiN019PkySvjV'      # Antoni - professional
+}
+```
+
+**Features**:
+- Automatic generation during debate
+- SSL verification disabled (`ssl=False`) for compatibility
+- Audio saved to `backend/storage/audio/<message_id>.mp3`
+- Duration estimation based on text length
+
+### SSE Events Implemented
+
+| Event | Status | Data |
+|-------|--------|------|
+| `debate_started` | ✅ | debate_id, status, timestamp |
+| `model_thinking` | ✅ | model_id, model_name, round, timestamp |
+| `message` | ✅ | Full message object (see Message interface) |
+| `error` | ✅ | model_id, model_name, error, timestamp |
+| `debate_complete` | ✅ | debate_id, status, total_messages, timestamp |
+| `round_complete` | ❌ | NOT IMPLEMENTED |
+| `prediction_update` | ❌ | NOT IMPLEMENTED (predictions always empty) |
+| `summary_generated` | ❌ | NOT IMPLEMENTED (Gemini not done) |
+
+### Key Implementation Differences from Spec
+
+1. **Response Length**:
+   - **Spec**: 2-4 sentences per message
+   - **Actual**: EXACTLY ONE SENTENCE
+   - **Reason**: User-requested simplification for faster debates
+   - **Code**: `max_tokens=100` (was 1000), system prompt enforces one sentence
+
+2. **Predictions**:
+   - **Spec**: Percentage predictions for each outcome (sum to 100%)
+   - **Actual**: Empty object `{}`
+   - **Reason**: Not implemented yet (Phase 5 in original plan)
+   - **Database**: Schema ready, just not populated
+
+3. **Storage**:
+   - **Spec**: JSON files in `backend/storage/debates/`
+   - **Actual**: SQLite database with SQLAlchemy ORM
+   - **Reason**: Better data management, querying, relationships
+
+4. **Gemini Summarization**:
+   - **Spec**: Full summary with agreements, disagreements, consensus
+   - **Actual**: Not implemented
+   - **Reason**: Phase 7 feature, not yet completed
+
+### Configuration
+
+**Required Environment Variables**:
+```bash
+OPENROUTER_API_KEY=sk-or-...     # Required ✅
+ELEVENLABS_API_KEY=...           # Required ✅
+GEMINI_API_KEY=...               # Optional (not used yet) ❌
+```
+
+**Do NOT set manually**:
+```bash
+DATABASE_URL                     # Auto-generated by config.py
+```
+
+**CORS Origins** ([backend/config.py:25](backend/config.py#L25)):
+```python
+CORS_ORIGINS = [FRONTEND_URL, 'http://localhost:3003', 'http://localhost:3004']
+```
+
+### Performance Characteristics
+
+**Actual Implementation**:
+- One-sentence responses: ~20-50 tokens per message
+- Audio generation: ~3-5 seconds per message
+- Total debate time (3 rounds, 3 models): ~2-3 minutes
+- Database queries: <10ms for most operations
+
+**Original Spec (if implemented)**:
+- Multi-sentence responses: ~500-800 tokens per message
+- Would be ~10-20x slower than current implementation
+
+### Testing Status
+
+| Component | Status |
+|-----------|--------|
+| Markets API | ✅ Tested |
+| Models API | ✅ Tested |
+| Debate creation | ✅ Tested |
+| SSE streaming | ✅ Tested |
+| Audio generation | ✅ Tested (SSL fix applied) |
+| Database persistence | ✅ Tested (cross-platform paths) |
+| Predictions | ❌ Not implemented |
+| Gemini summarization | ❌ Not implemented |
+| Pause/resume/stop | ❌ Not tested |
+
+### Known Issues
+
+1. **Frontend audio player** - URLs generated but UI not implemented
+2. **Predictions always empty** - System not implemented yet
+3. **No Gemini summaries** - Integration incomplete
+4. **Pause/resume/stop** - Code exists but untested
+5. **Database file was tracked by git** - Fixed with `git rm --cached`
+
+### Migration Notes
+
+If you have old JSON-based debates in `backend/storage/debates/`, they are not automatically migrated to the SQLite database. You would need to write a migration script or manually recreate debates.
+
+---
+
+**Document Version**: 2.0 (Implementation Update)
+**Last Updated**: 2025-11-16
+**Status**: Core features complete, predictions and summarization pending

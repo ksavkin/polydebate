@@ -1,0 +1,23 @@
+========================================
+Welcome to {app_name}!
+========================================
+
+Hi {name},
+
+Thank you for signing up! To complete your registration, please enter the verification code below:
+
+----------------------------------------
+Verification Code: {code}
+----------------------------------------
+
+This code expires in {expiry_minutes} minutes.
+
+SECURITY NOTICE:
+If you didn't request this code, please ignore this email.
+Never share this code with anyone.
+
+----------------------------------------
+
+Need help? Contact us at {support_email}
+
+© 2024 {app_name}. All rights reserved.
