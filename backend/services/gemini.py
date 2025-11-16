@@ -238,8 +238,17 @@ IMPORTANT:
         final_messages = [m for m in messages if m['model_id'] == model_id]
         if not final_messages:
             # Return equal distribution if no messages
-            equal_share = 100 // len(outcomes) if outcomes else 0
-            return {o['name']: equal_share for o in outcomes}
+            if not outcomes:
+                return {}
+            # Distribute 100 evenly, handling remainders
+            num_outcomes = len(outcomes)
+            equal_share = 100 // num_outcomes
+            remainder = 100 % num_outcomes
+            result = {}
+            for i, outcome in enumerate(outcomes):
+                # Give remainder to first outcomes
+                result[outcome['name']] = equal_share + (1 if i < remainder else 0)
+            return result
 
         last_message = final_messages[-1]
         predictions = last_message.get('predictions', {})

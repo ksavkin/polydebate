@@ -2,9 +2,12 @@
 Polymarket API integration service
 """
 import requests
+import logging
 from typing import List, Dict, Optional
 from config import config
 from utils.cache import cache
+
+logger = logging.getLogger(__name__)
 
 
 class PolymarketService:
@@ -442,6 +445,14 @@ class PolymarketService:
                 'shares': str(market.get('volume', 0))
             }
             outcomes.append(outcome)
+
+        # Validate and normalize prices to sum to 1.0
+        if outcomes:
+            total_price = sum(o['price'] for o in outcomes)
+            if total_price > 0 and abs(total_price - 1.0) > 0.01:  # Allow 1% tolerance
+                logger.warning(f"Outcome prices sum to {total_price}, normalizing to 1.0")
+                for outcome in outcomes:
+                    outcome['price'] = outcome['price'] / total_price
 
         return outcomes
 
