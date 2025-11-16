@@ -584,33 +584,52 @@ export default function DebatePage() {
                 </div>
 
                 <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-3">Final Predictions</h3>
+                  <h3 className="text-xl font-semibold mb-3">Final Predictions & Decisions</h3>
+                  <p className="text-caption mb-4" style={{ color: "var(--foreground-secondary)" }}>
+                    After {debateResults.statistics.rounds_completed} rounds of debate, here are the models' final predictions:
+                  </p>
                   <div className="space-y-3">
-                    {Object.entries(debateResults.final_predictions).map(([modelName, data]) => (
-                      <div
-                        key={modelName}
-                        className="p-4 rounded"
-                        style={{
-                          backgroundColor: "var(--color-charcoal)",
-                          color: "var(--color-white)",
-                        }}
-                      >
-                        <div className="font-semibold mb-2 text-body">{modelName}</div>
-                        <div className="flex gap-4 mb-2 flex-wrap">
-                          {Object.entries(data.predictions).map(([outcome, percentage]) => (
-                            <div key={outcome} className="text-body">
-                              <span style={{ color: "var(--foreground-secondary)" }}>{outcome}:</span>{" "}
-                              <span className="font-semibold">{percentage}%</span>
+                    {Object.entries(debateResults.final_predictions).map(([modelName, data]) => {
+                      // Find the outcome with the highest prediction
+                      const topOutcome = Object.entries(data.predictions).reduce((max, [outcome, percentage]) =>
+                        percentage > max.percentage ? { outcome, percentage } : max
+                      , { outcome: '', percentage: 0 });
+
+                      return (
+                        <div
+                          key={modelName}
+                          className="p-4 rounded"
+                          style={{
+                            backgroundColor: "var(--color-charcoal)",
+                            color: "var(--color-white)",
+                            borderLeft: "4px solid var(--color-primary)",
+                          }}
+                        >
+                          <div className="flex items-center justify-between mb-3">
+                            <div className="font-semibold text-body">{modelName}</div>
+                            <div className="px-3 py-1 rounded text-caption font-semibold" style={{
+                              backgroundColor: "var(--color-primary)",
+                              color: "var(--color-white)"
+                            }}>
+                              Final Decision: {topOutcome.outcome}
                             </div>
-                          ))}
-                        </div>
-                        {data.change && (
-                          <div className="text-caption" style={{ color: "var(--foreground-secondary)" }}>
-                            Change: {data.change}
                           </div>
-                        )}
-                      </div>
-                    ))}
+                          <div className="flex gap-4 mb-2 flex-wrap">
+                            {Object.entries(data.predictions).map(([outcome, percentage]) => (
+                              <div key={outcome} className="text-body">
+                                <span style={{ color: "var(--foreground-secondary)" }}>{outcome}:</span>{" "}
+                                <span className="font-semibold text-lg">{percentage}%</span>
+                              </div>
+                            ))}
+                          </div>
+                          {data.change && (
+                            <div className="text-caption mt-2" style={{ color: "var(--foreground-secondary)" }}>
+                              📊 {data.change}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 

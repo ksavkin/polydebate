@@ -129,7 +129,8 @@ class OpenRouterService:
         market_description: str,
         outcomes: List[Dict],
         context: List[Dict],
-        round_num: int
+        round_num: int,
+        is_final_round: bool = False
     ) -> Dict:
         """
         Generate AI response for debate
@@ -148,7 +149,14 @@ class OpenRouterService:
         # Format outcomes for prompt
         outcomes_text = ", ".join([f"{o['name']} (current odds: {o['price']*100:.1f}%)" for o in outcomes])
 
-        # Build system prompt
+        # Build system prompt with special instructions for final round
+        final_round_instructions = ""
+        if is_final_round:
+            final_round_instructions = """
+- THIS IS THE FINAL ROUND - Make your definitive prediction and final decision
+- Synthesize all arguments from the debate to make your most confident prediction
+- Your predictions should represent your final stance after considering all perspectives"""
+
         system_prompt = f"""You are participating in a structured debate about a prediction market.
 
 Market Question: {market_question}
@@ -158,7 +166,7 @@ Market Description: {market_description}
 Possible Outcomes: {outcomes_text}
 
 Instructions:
-- This is round {round_num} of the debate
+- This is round {round_num} of the debate{final_round_instructions}
 - You MUST respond with VALID JSON in this exact format:
 {{
   "argument": "Your 1-2 sentence argument here",
@@ -186,6 +194,8 @@ Instructions:
         # Add user prompt for this round
         if round_num == 1 and not context:
             user_prompt = "Provide your opening argument on this prediction market."
+        elif is_final_round:
+            user_prompt = "This is the final round. After considering all the arguments presented in this debate, provide your final prediction and conclusive statement on the market outcome."
         else:
             user_prompt = f"Provide your argument for round {round_num}, considering the previous discussion."
 

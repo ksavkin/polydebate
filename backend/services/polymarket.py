@@ -85,7 +85,8 @@ class PolymarketService:
                 'economy': 'economy',
                 'earnings': 'earnings',
                 'culture': 'pop-culture',
-                'pop-culture': 'pop-culture'
+                'pop-culture': 'pop-culture',
+                'activity': 'more'
             }
 
             tag_slug = category_slug_map.get(category.lower())

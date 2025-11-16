@@ -41,7 +41,7 @@ def create_app():
     # Initialize database
     try:
         logger.info(f"Initializing database: {config.DATABASE_URL}")
-        init_db(config.DATABASE_URL, echo=config.DEBUG)
+        init_db(config.DATABASE_URL, echo=False)  # Disable SQL echo to reduce log noise
         create_all_tables()
         logger.info("Database initialized successfully")
     except Exception as e:
