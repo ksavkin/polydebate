@@ -18,6 +18,7 @@ from database import init_db, create_all_tables
 # Import models so SQLAlchemy knows about them when creating tables
 from models.user import User
 from models.verification_code import VerificationCode
+from models.favorite import UserFavorite
 
 # Setup logging
 logging.basicConfig(
@@ -74,12 +75,14 @@ def register_routes(app):
     from routes.auth import auth_bp
     from routes.debate import debate_bp
     from routes.models import models_bp
+    from routes.favorites import favorites_bp
 
     # Register blueprints
     app.register_blueprint(markets_bp, url_prefix='/api')
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(debate_bp, url_prefix='/api')
     app.register_blueprint(models_bp, url_prefix='/api')
+    app.register_blueprint(favorites_bp, url_prefix='/api')
 
     @app.route('/api/health', methods=['GET'])
     def health():

@@ -294,6 +294,40 @@ export interface ApiError {
   };
 }
 
+// Favorites Types
+export interface Favorite {
+  id: number;
+  market_id: string;
+  created_at: string;
+}
+
+export interface FavoritesResponse {
+  success: boolean;
+  data: {
+    favorites: Favorite[];
+    total: number;
+  };
+}
+
+export interface AddFavoriteResponse {
+  success: boolean;
+  message: string;
+  data: Favorite;
+}
+
+export interface RemoveFavoriteResponse {
+  success: boolean;
+  message: string;
+}
+
+export interface CheckFavoriteResponse {
+  success: boolean;
+  data: {
+    is_favorited: boolean;
+    authenticated: boolean;
+  };
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -553,6 +587,28 @@ class ApiClient {
 
   isAuthenticated(): boolean {
     return this.getAuthToken() !== null;
+  }
+
+  // Favorites endpoints
+  async getFavorites(): Promise<FavoritesResponse> {
+    return this.fetchJson<FavoritesResponse>('/api/favorites');
+  }
+
+  async addFavorite(marketId: string): Promise<AddFavoriteResponse> {
+    return this.fetchJson<AddFavoriteResponse>('/api/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ market_id: marketId }),
+    });
+  }
+
+  async removeFavorite(marketId: string): Promise<RemoveFavoriteResponse> {
+    return this.fetchJson<RemoveFavoriteResponse>(`/api/favorites/${marketId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async checkFavorite(marketId: string): Promise<CheckFavoriteResponse> {
+    return this.fetchJson<CheckFavoriteResponse>(`/api/favorites/check/${marketId}`);
   }
 }
 

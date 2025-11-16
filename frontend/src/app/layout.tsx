@@ -4,6 +4,7 @@ import "./globals.css";
 import { SharedLayout } from "@/components/SharedLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -25,11 +26,13 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
         <AuthProvider>
-          <SearchProvider>
-            <SharedLayout>
-              {children}
-            </SharedLayout>
-          </SearchProvider>
+          <FavoritesProvider>
+            <SearchProvider>
+              <SharedLayout>
+                {children}
+              </SharedLayout>
+            </SearchProvider>
+          </FavoritesProvider>
         </AuthProvider>
       </body>
     </html>
