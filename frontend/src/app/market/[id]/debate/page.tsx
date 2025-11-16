@@ -202,10 +202,16 @@ export default function DebatePage() {
         window.addEventListener('debate-truly-complete', handleTrulyComplete);
       });
 
+      // Track error count to avoid spamming (only count meaningful errors)
+      let errorCount = 0;
+      const maxErrors = 5; // Increased threshold
+      let lastErrorTime = 0;
+      const errorWindowMs = 10000; // 10 second window to reset error count
+
       eventSource.addEventListener('error', (event: MessageEvent) => {
         try {
           if (!event.data || event.data.trim() === '') {
-            return; // Skip empty error events
+            return; // Skip empty error events - don't count them
           }
           const data = JSON.parse(event.data);
           
@@ -216,49 +222,73 @@ export default function DebatePage() {
           if (hasErrorData && !isEmpty) {
             console.error('SSE application error event received:', data);
             handleStreamEvent('error', data);
+            
+            // Only count meaningful errors
+            const now = Date.now();
+            if (now - lastErrorTime > errorWindowMs) {
+              // Reset counter if enough time has passed
+              errorCount = 0;
+            }
+            errorCount++;
+            lastErrorTime = now;
+            
+            if (errorCount >= maxErrors) {
+              console.error('Too many SSE application errors. Closing connection.');
+              setError('Multiple application errors detected. The debate stream may be corrupted.');
+              setStatus('error');
+              if (eventSourceRef.current) {
+                eventSourceRef.current.close();
+                eventSourceRef.current = null;
+              }
+            }
           }
-          // Silently ignore empty error objects - don't log them
+          // Silently ignore empty error objects - don't log or count them
         } catch (err) {
           // Silently ignore parsing errors for empty error events
         }
       });
-
-      // Track error count to avoid spamming
-      let errorCount = 0;
-      const maxErrors = 3;
       
       eventSource.onerror = (err) => {
-        errorCount++;
-        console.warn(`SSE connection error (${errorCount}/${maxErrors}):`, {
-          readyState: eventSource.readyState,
-          url: eventSource.url,
-          error: err
-        });
+        // Only count actual connection errors, not transient network issues
+        const now = Date.now();
         
-        // Only treat as fatal if connection is closed or we've had too many errors
+        // Reset error count if enough time has passed since last error
+        if (now - lastErrorTime > errorWindowMs) {
+          errorCount = 0;
+        }
+        
+        // Only increment error count for actual connection issues
         if (eventSource.readyState === EventSource.CLOSED) {
-          console.error('SSE connection closed unexpectedly');
-          setError('Connection to debate stream lost. Please check the server logs for details.');
-          setStatus('error');
+          // Connection closed - this is a real error
+          console.warn('SSE connection closed');
+          setError('Connection to debate stream lost');
           if (eventSourceRef.current) {
             eventSourceRef.current.close();
             eventSourceRef.current = null;
           }
         } else if (eventSource.readyState === EventSource.CONNECTING) {
-          console.warn('SSE connection is still connecting...');
-          // Don't treat connecting state as an error
-        } else if (eventSource.readyState === EventSource.OPEN && errorCount >= maxErrors) {
-          // Connection is open but we're getting repeated errors - might be a data issue
-          console.error('Too many SSE errors while connection is open. Closing connection.');
-          setError('Multiple connection errors detected. The debate stream may be corrupted.');
-          setStatus('error');
-          if (eventSourceRef.current) {
-            eventSourceRef.current.close();
-            eventSourceRef.current = null;
+          // Still connecting - this is usually transient, don't count it
+          // Silently ignore - browsers often fire onerror during initial connection
+        } else if (eventSource.readyState === EventSource.OPEN) {
+          // Connection is open but error occurred - might be transient
+          // Only count if it's a persistent issue
+          errorCount++;
+          lastErrorTime = now;
+          
+          if (errorCount >= maxErrors) {
+            // Too many errors in short time - close connection
+            console.error('Too many SSE connection errors. Closing connection.');
+            setError('Multiple connection errors detected. The debate stream may be corrupted.');
+            setStatus('error');
+            if (eventSourceRef.current) {
+              eventSourceRef.current.close();
+              eventSourceRef.current = null;
+            }
+          } else {
+            // Log but don't treat as fatal yet
+            console.warn(`SSE connection error (${errorCount}/${maxErrors})`);
           }
         }
-        // If connection is OPEN and error count is low, just log and continue
-        // This handles transient network issues
       };
 
     } catch (err) {
@@ -581,42 +611,69 @@ export default function DebatePage() {
           {/* Results Section - Only show when completed */}
           {status === 'completed' && debateResults && (
             <>
-              {/* Results Section - Table Format */}
+              {/* Results Section - Following design.md principles */}
               <div
-                className="rounded-lg border"
+                className="rounded-lg"
                 style={{
-                  backgroundColor: "var(--card-bg-hover)",
-                  borderColor: "var(--card-border)",
+                  backgroundColor: "var(--card-bg)",
+                  boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
                 }}
               >
-                  {/* Table Header */}
-                  <div
-                    className="px-4 py-3 border-b"
-                    style={{
-                      borderColor: "var(--card-border)",
-                    }}
-                  >
-                    <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                  {/* Header */}
+                  <div className="px-6 py-4 border-b" style={{ borderColor: "var(--card-border)" }}>
+                    <h2 
+                      className="text-base font-semibold" 
+                      style={{ 
+                        color: "var(--foreground)",
+                        lineHeight: "1.5",
+                      }}
+                    >
                       Debate Results
                     </h2>
                   </div>
 
-                  {/* Table Body */}
+                  {/* Content */}
                   <div className="divide-y" style={{ borderColor: "var(--card-border)" }}>
                     {/* Summary Section */}
-                    <div className="px-4 py-3">
-                      <div className="text-xs font-medium mb-2" style={{ color: "var(--foreground)" }}>
+                    <div className="px-6 py-5">
+                      <h3 
+                        className="text-base font-semibold mb-4" 
+                        style={{ 
+                          color: "var(--foreground)",
+                          lineHeight: "1.5",
+                        }}
+                      >
                         Summary
-                      </div>
-                      <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-secondary)" }}>
+                      </h3>
+                      <p 
+                        className="text-sm leading-relaxed mb-5" 
+                        style={{ 
+                          color: "var(--foreground-secondary)",
+                          lineHeight: "1.7",
+                          fontSize: "14px",
+                        }}
+                      >
                         {debateResults.summary.overall || "No summary available."}
                       </p>
                       {debateResults.summary.consensus && (
-                        <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--card-border)" }}>
-                          <div className="text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>
+                        <div className="pt-5 border-t" style={{ borderColor: "var(--card-border)" }}>
+                          <h4 
+                            className="text-sm font-semibold mb-3" 
+                            style={{ 
+                              color: "var(--foreground)",
+                              lineHeight: "1.5",
+                            }}
+                          >
                             Consensus
-                          </div>
-                          <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-secondary)" }}>
+                          </h4>
+                          <p 
+                            className="text-sm leading-relaxed" 
+                            style={{ 
+                              color: "var(--foreground-secondary)",
+                              lineHeight: "1.7",
+                              fontSize: "14px",
+                            }}
+                          >
                             {debateResults.summary.consensus}
                           </p>
                         </div>
@@ -625,65 +682,151 @@ export default function DebatePage() {
 
                     {/* Final Predictions Section */}
                     {Object.keys(debateResults.final_predictions).length > 0 && (
-                      <div className="px-4 py-3">
-                        <div className="text-xs font-medium mb-3" style={{ color: "var(--foreground)" }}>
+                      <div className="px-6 py-4">
+                        <h3 
+                          className="text-base font-semibold mb-5" 
+                          style={{ 
+                            color: "var(--foreground)",
+                            lineHeight: "1.5",
+                          }}
+                        >
                           Final Predictions
-                        </div>
-                        <div className="space-y-2">
-                          {Object.entries(debateResults.final_predictions).map(([modelName, data]) => (
-                            <div
-                              key={modelName}
-                              className="pb-2 last:pb-0"
-                            >
-                              <div className="text-xs font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
-                                {modelName}
-                              </div>
-                              <div className="flex gap-3 flex-wrap text-xs">
-                                {Object.entries(data.predictions).map(([outcome, percentage]) => (
-                                  <div key={outcome} style={{ color: "var(--foreground-secondary)" }}>
-                                    <span>{outcome}: </span>
-                                    <span className="font-semibold" style={{ color: "var(--foreground)" }}>
-                                      {percentage}%
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                              {data.change && (
-                                <div className="text-xs mt-1" style={{ color: "var(--foreground-secondary)" }}>
-                                  Change: {data.change}
+                        </h3>
+                        <div className="space-y-5">
+                          {Object.entries(debateResults.final_predictions).map(([modelName, data]) => {
+                            // Parse change string to determine color
+                            let changeColor = "var(--foreground-secondary)";
+                            let changeText = data.change || "";
+                            
+                            if (data.change) {
+                              // Extract sign from change string (e.g., "+7% 260-279 after debate" or "-5% 260-279 after debate")
+                              const changeMatch = data.change.match(/^([+-]?\d+\.?\d*)%/);
+                              if (changeMatch) {
+                                const changeValue = parseFloat(changeMatch[1]);
+                                if (changeValue > 0) {
+                                  changeColor = "#27ae60"; // Green for positive (design.md accent green)
+                                } else if (changeValue < 0) {
+                                  changeColor = "#e74c3c"; // Red for negative
+                                }
+                              }
+                            }
+                            
+                            return (
+                              <div 
+                                key={modelName}
+                                className="pb-5 last:pb-0 border-b last:border-b-0"
+                                style={{ borderColor: "var(--card-border)" }}
+                              >
+                                <div 
+                                  className="text-sm font-semibold mb-3" 
+                                  style={{ 
+                                    color: "var(--foreground)",
+                                    lineHeight: "1.5",
+                                  }}
+                                >
+                                  {modelName}
                                 </div>
-                              )}
-                            </div>
-                          ))}
+                                <div className="flex gap-x-8 gap-y-2.5 flex-wrap text-sm mb-3">
+                                  {Object.entries(data.predictions).map(([outcome, percentage]) => (
+                                    <div 
+                                      key={outcome} 
+                                      className="inline-flex items-baseline gap-2"
+                                    >
+                                      <span 
+                                        style={{ 
+                                          color: "var(--foreground-secondary)",
+                                          fontSize: "13px",
+                                        }}
+                                      >
+                                        {outcome}:
+                                      </span>
+                                      <span 
+                                        className="font-semibold tabular-nums" 
+                                        style={{ 
+                                          color: "var(--foreground)",
+                                          fontSize: "14px",
+                                        }}
+                                      >
+                                        {percentage}%
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                                {data.change && (
+                                  <div 
+                                    className="text-sm font-medium tabular-nums" 
+                                    style={{ 
+                                      color: changeColor,
+                                      lineHeight: "1.5",
+                                    }}
+                                  >
+                                    {changeText}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
                       </div>
                     )}
 
                     {/* Model Rationales Section */}
                     {debateResults.summary.model_rationales && debateResults.summary.model_rationales.length > 0 && (
-                      <div className="px-4 py-3">
-                        <div className="text-xs font-medium mb-3" style={{ color: "var(--foreground)" }}>
+                      <div className="px-6 py-5">
+                        <h3 
+                          className="text-base font-semibold mb-5" 
+                          style={{ 
+                            color: "var(--foreground)",
+                            lineHeight: "1.5",
+                          }}
+                        >
                           Model Rationales
-                        </div>
-                        <div className="space-y-3">
+                        </h3>
+                        <div className="space-y-6">
                           {debateResults.summary.model_rationales.map((rationale, idx) => (
                             <div
                               key={idx}
-                              className="pb-3 last:pb-0 border-b last:border-b-0"
+                              className="pb-6 last:pb-0 border-b last:border-b-0"
                               style={{ borderColor: "var(--card-border)" }}
                             >
-                              <div className="text-xs font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
+                              <div 
+                                className="text-sm font-semibold mb-3" 
+                                style={{ 
+                                  color: "var(--foreground)",
+                                  lineHeight: "1.5",
+                                }}
+                              >
                                 {rationale.model}
                               </div>
-                              <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--foreground-secondary)" }}>
+                              <p 
+                                className="text-sm leading-relaxed mb-4" 
+                                style={{ 
+                                  color: "var(--foreground-secondary)",
+                                  lineHeight: "1.7",
+                                  fontSize: "14px",
+                                }}
+                              >
                                 {rationale.rationale}
                               </p>
                               {rationale.key_arguments && rationale.key_arguments.length > 0 && (
-                                <div className="text-xs">
-                                  <div className="font-medium mb-1" style={{ color: "var(--foreground)" }}>
-                                    Key Arguments:
+                                <div className="text-sm">
+                                  <div 
+                                    className="font-semibold mb-2.5" 
+                                    style={{ 
+                                      color: "var(--foreground)",
+                                      lineHeight: "1.5",
+                                    }}
+                                  >
+                                    Key Arguments
                                   </div>
-                                  <ul className="list-disc list-inside space-y-0.5" style={{ color: "var(--foreground-secondary)" }}>
+                                  <ul 
+                                    className="list-disc list-inside space-y-1.5" 
+                                    style={{ 
+                                      color: "var(--foreground-secondary)",
+                                      lineHeight: "1.7",
+                                      fontSize: "14px",
+                                    }}
+                                  >
                                     {rationale.key_arguments.map((arg, argIdx) => (
                                       <li key={argIdx}>{arg}</li>
                                     ))}
@@ -1070,9 +1213,6 @@ export default function DebatePage() {
 
             {/* Model Selection Section */}
             <div className="px-0 lg:pr-4 py-4 flex-shrink-0">
-              <h3 className="text-body font-medium mb-4 text-center" style={{ color: "var(--foreground)" }}>
-                Select AI models ({selectedModels.length}/4)
-              </h3>
 
               {/* Character-Select Carousel with Peeking Neighbors */}
               <div 

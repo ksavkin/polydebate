@@ -48,6 +48,7 @@ export function DebateChat({
   const initializedRef = useRef(false);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
+  const previousPredictionsRef = useRef<Map<string, Record<string, number>>>(new Map());
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set());
   
   // Keep messagesRef in sync with messages prop
@@ -551,6 +552,7 @@ export function DebateChat({
                 {roundMessages.map(({ msg, globalIndex }) => {
                   const messageId = `${msg.model_id}-${msg.round}-${globalIndex}`;
                   const isPlaying = playingMessageId === messageId;
+                  const isVisible = visibleMessageIds.has(messageId);
                   
                   return (
                     <motion.div
@@ -601,21 +603,79 @@ export function DebateChat({
 
                       {msg.predictions &&
                         Object.keys(msg.predictions).length > 0 && (
-                          <div className="mt-2 flex flex-wrap gap-2 text-[10px]">
+                          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
                             {Object.entries(msg.predictions).map(
-                              ([outcome, pct]) => (
-                                <span
-                                  key={outcome}
-                                  className="inline-flex items-center rounded-full px-2 py-0.5 bg-[var(--color-charcoal)] text-[var(--foreground-secondary)]"
-                                >
-                                  <span className="mr-1 text-[var(--foreground-secondary)]">
-                                    {outcome}:
-                                  </span>
-                                  <span className="font-semibold text-[var(--foreground)]">
-                                    {pct}%
-                                  </span>
-                                </span>
-                              )
+                              ([outcome, pct], predIndex) => {
+                                // Track previous predictions per model (across rounds)
+                                const modelKey = msg.model_id;
+                                const previousPreds = previousPredictionsRef.current.get(modelKey) || {};
+                                const previousPct = previousPreds[outcome];
+                                const change = previousPct !== undefined ? pct - previousPct : 0;
+                                
+                                // Update previous predictions for this model
+                                if (!previousPredictionsRef.current.has(modelKey)) {
+                                  previousPredictionsRef.current.set(modelKey, {});
+                                }
+                                previousPredictionsRef.current.get(modelKey)![outcome] = pct;
+                                
+                                // Determine color based on change (only if there was a previous value)
+                                let textColor = "var(--foreground)"; // More prominent default color
+                                if (previousPct !== undefined) {
+                                  if (change > 0) {
+                                    textColor = "#27ae60"; // green for positive (design.md accent green)
+                                  } else if (change < 0) {
+                                    textColor = "#e74c3c"; // red for negative
+                                  }
+                                }
+                                
+                                // Animate numbers slowly, similar to BlurText but slower
+                                // Each prediction animates with a delay based on its index
+                                const animationDelay = predIndex * 150; // 150ms delay between each prediction
+                                
+                                return (
+                                  <div
+                                    key={outcome}
+                                    className="inline-flex items-baseline gap-1.5"
+                                  >
+                                    <span 
+                                      style={{ 
+                                        color: "var(--foreground-secondary)",
+                                        fontSize: '13px',
+                                      }}
+                                    >
+                                      {outcome}:
+                                    </span>
+                                    <motion.span
+                                      className="font-semibold tabular-nums"
+                                      style={{ 
+                                        color: textColor,
+                                        fontSize: '14px',
+                                      }}
+                                      initial={{ 
+                                        filter: "blur(12px)",
+                                        opacity: 0,
+                                        scale: 0.95,
+                                      }}
+                                      animate={isVisible ? { 
+                                        filter: "blur(0px)",
+                                        opacity: 1,
+                                        scale: 1,
+                                      } : {
+                                        filter: "blur(12px)",
+                                        opacity: 0,
+                                        scale: 0.95,
+                                      }}
+                                      transition={{ 
+                                        duration: 0.8, // Slower than text animation (0.32s)
+                                        delay: animationDelay / 1000, // Convert ms to seconds
+                                        ease: "easeOut"
+                                      }}
+                                    >
+                                      {pct}%
+                                    </motion.span>
+                                  </div>
+                                );
+                              }
                             )}
                           </div>
                         )}

@@ -272,9 +272,18 @@ Instructions:
             # Log the full response for debugging
             logger.debug(f"OpenRouter response for {model_id}: {data}")
 
+            # Validate data is not None
+            if data is None:
+                logger.error(f"OpenRouter returned None response for {model_id}")
+                raise Exception("OpenRouter returned None response")
+
             # Check if response has expected structure
-            if 'error' in data:
-                error_msg = data['error'].get('message', str(data['error']))
+            if 'error' in data and data['error'] is not None:
+                # Handle error object (could be dict or string)
+                if isinstance(data['error'], dict):
+                    error_msg = data['error'].get('message', str(data['error']))
+                else:
+                    error_msg = str(data['error'])
                 logger.error(f"OpenRouter API error for {model_id}: {error_msg}")
                 raise Exception(f"OpenRouter API error: {error_msg}")
 
@@ -282,79 +291,93 @@ Instructions:
                 logger.error(f"No choices in response for {model_id}: {data}")
                 raise Exception("OpenRouter returned no choices in response")
 
+            # Validate choices is a list and not empty
+            if not isinstance(data['choices'], list) or len(data['choices']) == 0:
+                logger.error(f"Invalid choices structure for {model_id}: {data}")
+                raise Exception("OpenRouter returned invalid choices structure")
+
             choice = data['choices'][0]
-            if 'message' not in choice or 'content' not in choice['message']:
-                logger.error(f"Invalid response structure for {model_id}: {data}")
+            if not isinstance(choice, dict) or 'message' not in choice:
+                logger.error(f"Invalid choice structure for {model_id}: {choice}")
+                raise Exception("OpenRouter returned invalid choice structure")
+            
+            message = choice['message']
+            if message is None or not isinstance(message, dict):
+                logger.error(f"Invalid message structure (None or not dict) for {model_id}: {message}")
+                raise Exception("OpenRouter returned invalid message structure")
+            
+            if 'content' not in message:
+                logger.error(f"Message missing content for {model_id}: {message}")
                 raise Exception("OpenRouter response missing message content")
 
-            content = choice['message']['content']
+            content = message['content']
 
             if not content:
                 logger.warning(f"Empty content from {model_id}")
                 raise Exception("OpenRouter returned empty content")
 
-                # Parse JSON response
-                import json
-                import re
+            # Parse JSON response
+            import json
+            import re
 
-                try:
-                    # Try to extract JSON from response (may be wrapped in markdown)
-                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+            try:
+                # Try to extract JSON from response (may be wrapped in markdown)
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                if json_match:
+                    json_text = json_match.group(1)
+                else:
+                    # Try to find raw JSON
+                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
                     if json_match:
-                        json_text = json_match.group(1)
+                        json_text = json_match.group(0)
                     else:
-                        # Try to find raw JSON
-                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                        if json_match:
-                            json_text = json_match.group(0)
-                        else:
-                            # No JSON found, treat as plain text
-                            logger.warning(f"No JSON found in response from {model_id}, using plain text")
-                            # Create default predictions (equal distribution)
-                            return {
-                                'content': content,
-                                'predictions': {},
-                                'model': model_id,
-                                'tokens': data.get('usage', {})
-                            }
+                        # No JSON found, treat as plain text
+                        logger.warning(f"No JSON found in response from {model_id}, using plain text")
+                        # Create default predictions (equal distribution)
+                        return {
+                            'content': content,
+                            'predictions': {},
+                            'model': model_id,
+                            'tokens': data.get('usage', {})
+                        }
 
-                    parsed = json.loads(json_text)
+                parsed = json.loads(json_text)
 
-                    # Extract argument and predictions
-                    argument = parsed.get('argument', content)
-                    predictions = parsed.get('predictions', {})
+                # Extract argument and predictions
+                argument = parsed.get('argument', content)
+                predictions = parsed.get('predictions', {})
 
-                    # Validate predictions sum to 100
-                    if predictions and sum(predictions.values()) != 100:
-                        logger.warning(f"Predictions from {model_id} don't sum to 100: {predictions}")
-                        # Normalize to 100
-                        total = sum(predictions.values())
-                        if total > 0:
-                            # Use proper rounding to avoid truncation errors
-                            normalized = {k: round(v * 100 / total) for k, v in predictions.items()}
-                            # Adjust for rounding errors to ensure sum equals 100
-                            diff = 100 - sum(normalized.values())
-                            if diff != 0:
-                                # Add/subtract difference to the largest value
-                                max_key = max(normalized.items(), key=lambda x: x[1])[0]
-                                normalized[max_key] += diff
-                            predictions = normalized
+                # Validate predictions sum to 100
+                if predictions and sum(predictions.values()) != 100:
+                    logger.warning(f"Predictions from {model_id} don't sum to 100: {predictions}")
+                    # Normalize to 100
+                    total = sum(predictions.values())
+                    if total > 0:
+                        # Use proper rounding to avoid truncation errors
+                        normalized = {k: round(v * 100 / total) for k, v in predictions.items()}
+                        # Adjust for rounding errors to ensure sum equals 100
+                        diff = 100 - sum(normalized.values())
+                        if diff != 0:
+                            # Add/subtract difference to the largest value
+                            max_key = max(normalized.items(), key=lambda x: x[1])[0]
+                            normalized[max_key] += diff
+                        predictions = normalized
 
-                    return {
-                        'content': argument,
-                        'predictions': predictions,
-                        'model': model_id,
-                        'tokens': data.get('usage', {})
-                    }
+                return {
+                    'content': argument,
+                    'predictions': predictions,
+                    'model': model_id,
+                    'tokens': data.get('usage', {})
+                }
 
-                except json.JSONDecodeError as e:
-                    logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
-                    return {
-                        'content': content,
-                        'predictions': {},
-                        'model': model_id,
-                        'tokens': data.get('usage', {})
-                    }
+            except json.JSONDecodeError as e:
+                logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
+                return {
+                    'content': content,
+                    'predictions': {},
+                    'model': model_id,
+                    'tokens': data.get('usage', {})
+                }
 
 
 # Global instance

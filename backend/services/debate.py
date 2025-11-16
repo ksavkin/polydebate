@@ -183,6 +183,17 @@ class DebateService:
                         is_final_round=(message_type == 'final')
                     )
 
+                    # Validate response structure
+                    if response is None:
+                        logger.error(f"Response is None from {model.model_id}")
+                        raise Exception(f"Response is None from {model.model_id}")
+                    if not isinstance(response, dict):
+                        logger.error(f"Response is not a dict from {model.model_id}: {type(response)} - {response}")
+                        raise Exception(f"Invalid response type from {model.model_id}: expected dict, got {type(response).__name__}")
+                    if 'content' not in response:
+                        logger.error(f"Response missing 'content' key from {model.model_id}: {response.keys() if isinstance(response, dict) else 'N/A'}")
+                        raise Exception(f"Invalid response structure from {model.model_id}: missing 'content' key")
+
                     logger.info(f"Received response from {model.model_id}: {len(response['content'])} chars")
 
                     # Extract predictions from response

@@ -205,9 +205,22 @@ def stream_debate(debate_id):
                     event_data_obj = event.get('data', {})
                     
                     # Ensure error events always have meaningful data
-                    if event_type == 'error' and not event_data_obj.get('error') and not event_data_obj.get('message'):
-                        event_data_obj['error'] = 'Unknown error occurred'
-                        logger.warning(f"Error event with empty data, adding default message: {event}")
+                    if event_type == 'error':
+                        # Skip empty error events entirely
+                        if not event_data_obj:
+                            logger.debug(f"Skipping empty error event (None): {event}")
+                            continue
+                        if not isinstance(event_data_obj, dict):
+                            logger.warning(f"Skipping invalid error event (not dict): {event}")
+                            continue
+                        if not event_data_obj.get('error') and not event_data_obj.get('message'):
+                            logger.debug(f"Skipping empty error event (no error/message): {event}")
+                            continue
+                        # Ensure at least one field is present
+                        if not event_data_obj.get('error'):
+                            event_data_obj['error'] = event_data_obj.get('message', 'Unknown error occurred')
+                        if not event_data_obj.get('message'):
+                            event_data_obj['message'] = event_data_obj.get('error', 'Unknown error occurred')
                     
                     event_data = json.dumps(event_data_obj)
                     yield f"event: {event_type}\ndata: {event_data}\n\n"
