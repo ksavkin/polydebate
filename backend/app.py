@@ -1,6 +1,13 @@
 """
 PolyDebate Backend - Flask Application
 """
+import sys
+import asyncio
+
+# Fix for aiohttp on Windows - requires SelectorEventLoop instead of ProactorEventLoop
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 from flask import Flask, jsonify
 from flask_cors import CORS
 from datetime import datetime
