@@ -52,8 +52,7 @@ class Config:
     AUDIO_DIR = os.path.join(STORAGE_DIR, 'audio')
 
     # Database
-    DATABASE_PATH = os.path.join(STORAGE_DIR, 'polydebate.db')
-    DATABASE_URL = f'sqlite:///{DATABASE_PATH}'
+    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./storage/polydebate.db')
 
     @classmethod
     def validate(cls):
