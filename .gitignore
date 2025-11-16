@@ -68,3 +68,10 @@ build/
 
 # backend
 /backend/.venv
+/backend/venv/
+venv/
+.venv/
+
+# IDE
+.vscode/
+.idea/
