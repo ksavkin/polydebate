@@ -32,6 +32,7 @@ class Config:
     # External APIs
     POLYMARKET_API_URL = 'https://gamma-api.polymarket.com'
     OPENROUTER_API_URL = 'https://openrouter.ai/api/v1'
+    APP_URL = os.getenv('APP_URL', 'http://localhost:5001')
 
     # Cache TTL (in seconds)
     CACHE_MARKETS_TTL = int(os.getenv('CACHE_MARKETS_TTL', 300))  # 5 minutes
