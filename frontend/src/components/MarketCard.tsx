@@ -53,6 +53,7 @@ export function MarketCard({
   isNew = false,
 }: MarketCardProps) {
   const [isCardHovered, setIsCardHovered] = useState(false);
+  const [showToast, setShowToast] = useState(false);
   const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
@@ -89,9 +90,23 @@ export function MarketCard({
     await toggleFavorite(id);
   };
 
-  const handleShare = (e: React.MouseEvent) => {
+  const handleShare = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: Implement share functionality
+
+    try {
+      const url = `${window.location.origin}/market/${id}/debate`;
+      await navigator.clipboard.writeText(url);
+
+      // Show toast notification
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+      }, 2000);
+    } catch (error) {
+      console.error('Failed to copy link:', error);
+      // Fallback: show alert if clipboard API fails
+      alert('Failed to copy link to clipboard');
+    }
   };
 
   // Cleanup timeout on unmount
@@ -911,8 +926,8 @@ export function MarketCard({
             <button
               onClick={handleShare}
               className="p-1.5 rounded transition-colors duration-100"
-              style={{ 
-                color: "var(--foreground-secondary)",
+              style={{
+                color: showToast ? "var(--color-primary)" : "var(--foreground-secondary)",
                 backgroundColor: "transparent",
               }}
               onMouseEnter={(e) => {
@@ -1027,6 +1042,32 @@ export function MarketCard({
     >
       Start AI Debate
     </Link>
+
+    {/* Toast notification */}
+    {showToast && (
+      <div
+        style={{
+          position: "fixed",
+          bottom: "24px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          backgroundColor: "var(--color-charcoal)",
+          color: "var(--color-white)",
+          padding: "12px 24px",
+          borderRadius: "8px",
+          boxShadow: "var(--shadow-lg)",
+          zIndex: 9999,
+          fontSize: "var(--text-sm)",
+          fontWeight: 500,
+          animation: "toastFadeIn 0.2s ease-out",
+          pointerEvents: "none",
+        }}
+        onMouseEnter={(e) => e.stopPropagation()}
+        onMouseLeave={(e) => e.stopPropagation()}
+      >
+        Link copied
+      </div>
+    )}
     </div>
   );
 }
