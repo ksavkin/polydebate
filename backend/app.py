@@ -15,6 +15,9 @@ import logging
 
 from config import config
 from database import init_db, create_all_tables
+# Import models so SQLAlchemy knows about them when creating tables
+from models.user import User
+from models.verification_code import VerificationCode
 
 # Setup logging
 logging.basicConfig(
