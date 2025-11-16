@@ -16,6 +16,95 @@ class OpenRouterService:
         self.base_url = "https://openrouter.ai/api/v1"
         self.api_key = config.OPENROUTER_API_KEY
 
+    async def get_available_models(self, max_price_per_million: float = 0.5) -> Dict:
+        """
+        Get list of available AI models from OpenRouter
+
+        Args:
+            max_price_per_million: Maximum price per 1M tokens (default 0.5)
+
+        Returns:
+            Dict with models list and counts
+        """
+        async with aiohttp.ClientSession() as session:
+            headers = {
+                "Authorization": f"Bearer {self.api_key}",
+                "HTTP-Referer": config.APP_URL,
+                "X-Title": "AI Debate Platform"
+            }
+
+            async with session.get(
+                f"{self.base_url}/models",
+                headers=headers,
+                ssl=False,
+                timeout=aiohttp.ClientTimeout(total=30)
+            ) as response:
+                response.raise_for_status()
+                data = await response.json()
+
+                # Filter and format models
+                models = []
+                for model in data.get('data', []):
+                    # Calculate total price per million tokens
+                    pricing = model.get('pricing', {})
+                    input_price = float(pricing.get('prompt', 0))
+                    output_price = float(pricing.get('completion', 0))
+                    total_per_million = (input_price + output_price) * 1_000_000
+
+                    is_free = total_per_million == 0
+
+                    # Filter by price
+                    if total_per_million > max_price_per_million and not is_free:
+                        continue
+
+                    models.append({
+                        'id': model.get('id'),
+                        'name': model.get('name', model.get('id')),
+                        'provider': self._extract_provider(model.get('id', '')),
+                        'description': model.get('description', ''),
+                        'pricing': {
+                            'input': input_price,
+                            'output': output_price,
+                            'total_per_million': total_per_million
+                        },
+                        'is_free': is_free,
+                        'context_length': model.get('context_length', 0),
+                        'max_output_tokens': model.get('top_provider', {}).get('max_completion_tokens', 4096),
+                        'supported': True
+                    })
+
+                # Sort: free models first, then by price
+                models.sort(key=lambda x: (not x['is_free'], x['pricing']['total_per_million']))
+
+                free_count = sum(1 for m in models if m['is_free'])
+                paid_count = len(models) - free_count
+
+                return {
+                    'models': models,
+                    'total_count': len(models),
+                    'free_count': free_count,
+                    'paid_count': paid_count
+                }
+
+    def _extract_provider(self, model_id: str) -> str:
+        """Extract provider name from model ID"""
+        parts = model_id.split('/')
+        if len(parts) >= 1:
+            provider = parts[0]
+            # Map common providers to friendly names
+            provider_map = {
+                'google': 'Google',
+                'meta-llama': 'Meta',
+                'anthropic': 'Anthropic',
+                'openai': 'OpenAI',
+                'mistralai': 'Mistral AI',
+                'deepseek': 'DeepSeek',
+                'qwen': 'Alibaba',
+                'cohere': 'Cohere'
+            }
+            return provider_map.get(provider, provider.title())
+        return "Unknown"
+
     def get_model_info(self, model_id: str) -> Dict:
         """Get model information"""
         # Parse model ID to extract provider and name
