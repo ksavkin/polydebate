@@ -277,7 +277,8 @@ export function Navigation({
             })}
           </div>
 
-          {/* Topic Chips Row */}
+          {/* Topic Chips Row - Hide for breaking category */}
+          {activeCategory !== "breaking" && (
           <div className="flex items-center gap-3 py-2 overflow-x-auto scrollbar-hide" style={{ position: "relative", zIndex: 2 }}>
             {/* Left Side - Search Bar, Filter, Bookmark */}
             <div className="flex items-center gap-2 shrink-0" style={{ position: "relative", zIndex: 30 }}>
@@ -444,6 +445,7 @@ export function Navigation({
               })}
             </div>
           </div>
+          )}
         </div>
       </div>
     </nav>

@@ -36,6 +36,7 @@ export interface Market {
   created_date?: string;
   image_url?: string;
   resolution_source?: string;
+  price_change_24h?: number; // Price change percentage in last 24 hours
 }
 
 export interface MarketsResponse {

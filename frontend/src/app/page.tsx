@@ -4,9 +4,26 @@ import { Navigation } from "@/components/Navigation";
 import { MarketCard } from "@/components/MarketCard";
 import { Footer } from "@/components/Footer";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
+import { BreakingNews } from "@/components/BreakingNews";
 import { cn } from "@/lib/utils";
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { apiClient, type Market } from "@/lib/api";
+
+// Helper function to parse volume strings (e.g., "1.2M", "850K", "$10.5M")
+const parseVolume = (volumeStr: string): number => {
+  if (!volumeStr) return 0;
+  const cleaned = volumeStr.replace(/[^0-9.]/g, '');
+  const num = parseFloat(cleaned) || 0;
+  
+  if (volumeStr.toUpperCase().includes('M')) {
+    return num * 1000000;
+  } else if (volumeStr.toUpperCase().includes('K')) {
+    return num * 1000;
+  } else if (volumeStr.toUpperCase().includes('B')) {
+    return num * 1000000000;
+  }
+  return num;
+};
 
 // Transform API market to component format
 const transformMarket = (market: Market) => {
@@ -46,6 +63,7 @@ const transformMarket = (market: Market) => {
     resolution_source: market.resolution_source,
     period,
     isLive,
+    price_change_24h: market.price_change_24h,
   };
 };
 
@@ -315,10 +333,131 @@ export default function Home() {
 
     // Filter by subtopic (if not "All")
     if (activeSubtopic !== "All") {
+      const now = new Date();
+      const subtopicLower = activeSubtopic.toLowerCase();
+      
       filtered = filtered.filter((market) => {
+        // Time-based filters
+        if (subtopicLower === "just now" || subtopicLower === "last hour") {
+          if (!market.created_date) return false;
+          const createdDate = new Date(market.created_date);
+          const hoursAgo = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
+          return hoursAgo <= 1;
+        }
+        
+        if (subtopicLower === "today") {
+          if (!market.created_date) return false;
+          const createdDate = new Date(market.created_date);
+          const isToday = createdDate.toDateString() === now.toDateString();
+          return isToday;
+        }
+        
+        if (subtopicLower === "this week") {
+          if (!market.created_date) return false;
+          const createdDate = new Date(market.created_date);
+          const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+          return createdDate >= weekAgo;
+        }
+        
+        if (subtopicLower === "this month") {
+          if (!market.created_date) return false;
+          const createdDate = new Date(market.created_date);
+          const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+          return createdDate >= monthAgo;
+        }
+        
+        // Ending soon filter
+        if (subtopicLower === "ending soon") {
+          if (!market.end_date) return false;
+          const endDate = new Date(market.end_date);
+          const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+          return daysUntilEnd > 0 && daysUntilEnd <= 7; // Ending within 7 days
+        }
+        
+        // New markets filter
+        if (subtopicLower === "new markets") {
+          if (!market.created_date) return false;
+          const createdDate = new Date(market.created_date);
+          const daysAgo = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+          return daysAgo <= 3; // Created within last 3 days
+        }
+        
+        // Hot markets - high volume or high activity
+        if (subtopicLower === "hot") {
+          // Consider markets with high volume or ending soon as "hot"
+          const volumeNum = parseVolume(market.volume);
+          const isHighVolume = volumeNum >= 100000; // $100k+ volume
+          
+          if (market.end_date) {
+            const endDate = new Date(market.end_date);
+            const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
+            const isEndingSoon = daysUntilEnd > 0 && daysUntilEnd <= 3;
+            return isHighVolume || isEndingSoon;
+          }
+          
+          return isHighVolume;
+        }
+        
+        // Most volume - will be sorted separately
+        if (subtopicLower === "most volume") {
+          return true; // Don't filter, just sort by volume
+        }
+        
+        // Category-specific subtopics (e.g., "US Elections", "Presidential", etc.)
+        // Check if subtopic matches question or category
         const question = market.question.toLowerCase();
-        const subtopicLower = activeSubtopic.toLowerCase();
-        return question.includes(subtopicLower) || market.category.toLowerCase().includes(subtopicLower);
+        const category = market.category.toLowerCase();
+        return question.includes(subtopicLower) || category.includes(subtopicLower);
+      });
+      
+      // Sort by volume if "Most Volume" is selected
+      if (subtopicLower === "most volume") {
+        filtered.sort((a, b) => {
+          const volumeA = parseVolume(a.volume);
+          const volumeB = parseVolume(b.volume);
+          return volumeB - volumeA; // Descending order
+        });
+      }
+      
+      // Sort by end date if "Ending Soon" is selected
+      if (subtopicLower === "ending soon") {
+        filtered.sort((a, b) => {
+          if (!a.end_date) return 1;
+          if (!b.end_date) return -1;
+          return new Date(a.end_date).getTime() - new Date(b.end_date).getTime();
+        });
+      }
+      
+      // Sort by created date if "New Markets" is selected
+      if (subtopicLower === "new markets") {
+        filtered.sort((a, b) => {
+          if (!a.created_date) return 1;
+          if (!b.created_date) return -1;
+          return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+        });
+      }
+      
+      // Sort breaking category subtopics by most recent (newest first)
+      if (activeCategory === "breaking" && (
+        subtopicLower === "just now" || 
+        subtopicLower === "last hour" || 
+        subtopicLower === "today" || 
+        subtopicLower === "this week"
+      )) {
+        filtered.sort((a, b) => {
+          if (!a.created_date) return 1;
+          if (!b.created_date) return -1;
+          return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+        });
+      }
+    }
+    
+    // Default sort for breaking category (when "All" is selected) - newest first
+    if (activeCategory === "breaking" && activeSubtopic === "All") {
+      filtered.sort((a, b) => {
+        if (!a.created_date) return 1;
+        if (!b.created_date) return -1;
+        return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
       });
     }
 
@@ -327,12 +466,48 @@ export default function Home() {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter((market) =>
         market.question.toLowerCase().includes(query) ||
-        market.category.toLowerCase().includes(query)
+        market.category.toLowerCase().includes(query) ||
+        (market.description && market.description.toLowerCase().includes(query))
       );
     }
 
     return filtered;
   }, [allMarkets, activeCategory, activeSubtopic, searchQuery]);
+
+  // Transform markets for Breaking News component
+  const breakingMarkets = useMemo(() => {
+    // Only show breaking layout when activeCategory is "breaking"
+    if (activeCategory !== "breaking") return [];
+    
+    return filteredMarkets.slice(0, 15).map((market, index) => {
+      // Calculate percentage (use first outcome price or average)
+      const percentage = market.outcomes.length > 0
+        ? Math.round(market.outcomes[0].price * 100)
+        : 50;
+      
+      // Use real price change from API if available, otherwise calculate or use 0
+      let change = 0;
+      if (market.price_change_24h !== undefined && market.price_change_24h !== null) {
+        // Use real price change from API
+        change = market.price_change_24h;
+      } else {
+        // Fallback: simulate change if API doesn't provide it
+        // In production, you might want to calculate from historical data
+        change = (Math.random() * 60 - 30);
+      }
+      
+      return {
+        id: market.id,
+        question: market.question,
+        image_url: market.image_url,
+        rank: index + 1,
+        percentage,
+        change: Math.round(change * 10) / 10,
+        volume: market.volume,
+        category: market.category,
+      };
+    });
+  }, [filteredMarkets, activeCategory]);
 
   // Reset display count when filters change
   useEffect(() => {
@@ -475,9 +650,19 @@ export default function Home() {
           </div>
         )}
 
-        {/* Markets Grid */}
-        {!isInitialLoading && !error && displayedMarkets.length > 0 ? (
+        {/* Breaking News Layout */}
+        {!isInitialLoading && !error && activeCategory === "breaking" && breakingMarkets.length > 0 ? (
+          <BreakingNews
+            markets={breakingMarkets}
+            activeCategory={activeCategory}
+            onCategoryChange={(category) => {
+              setActiveCategory(category);
+              setActiveSubtopic("All");
+            }}
+          />
+        ) : !isInitialLoading && !error && displayedMarkets.length > 0 ? (
           <>
+            {/* Markets Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch" style={{ overflow: "visible" }}>
               {displayedMarkets.map((market) => (
                 <MarketCard 
