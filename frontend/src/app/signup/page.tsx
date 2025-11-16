@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card } from '@/components/ui/card';
 import Link from 'next/link';
 
 export default function SignupPage() {
@@ -71,141 +70,228 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 px-4">
-      <Card className="w-full max-w-md p-8">
+    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--background)' }}>
+      <div className="w-full max-w-md">
+        {/* Logo/Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">Sign Up</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Create your PolyDebate account
-          </p>
+          <Link href="/" className="inline-flex items-center gap-2 mb-6">
+            <div
+              className="w-10 h-10 rounded flex items-center justify-center"
+              style={{ backgroundColor: 'var(--color-primary)' }}
+            >
+              <span className="text-white font-bold text-lg">PD</span>
+            </div>
+            <span className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>PolyDebate</span>
+          </Link>
+          <h1 className="text-h1 mb-2" style={{ color: 'var(--foreground)' }}>Create Account</h1>
+          <p style={{ color: 'var(--foreground-secondary)' }}>Join PolyDebate today</p>
         </div>
 
-        {step === 'email' ? (
-          <form onSubmit={handleRequestCode} className="space-y-4">
-            <div>
-              <label htmlFor="name" className="block text-sm font-medium mb-2">
-                Name
-              </label>
-              <Input
-                id="name"
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Enter your name"
-                required
-                minLength={2}
-                disabled={loading}
-              />
-            </div>
-
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium mb-2">
-                Email
-              </label>
-              <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                required
-                disabled={loading}
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        {/* Main Form Card */}
+        <div
+          className="p-8 rounded-lg"
+          style={{
+            background: 'var(--card-bg)',
+            border: '1px solid var(--card-border)',
+            boxShadow: 'var(--shadow-md)',
+          }}
+        >
+          {step === 'email' ? (
+            <form onSubmit={handleRequestCode} className="space-y-6">
+              <div>
+                <label
+                  htmlFor="name"
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--foreground)' }}
+                >
+                  Name
+                </label>
+                <Input
+                  id="name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                  required
+                  minLength={2}
+                  disabled={loading}
+                  className="w-full"
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--card-border)',
+                    color: 'var(--foreground)',
+                  }}
+                />
               </div>
-            )}
 
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? 'Sending...' : 'Send Verification Code'}
-            </Button>
-
-            <p className="text-center text-sm text-gray-600 dark:text-gray-400">
-              Already have an account?{' '}
-              <Link href="/login" className="text-blue-600 hover:underline">
-                Log in
-              </Link>
-            </p>
-          </form>
-        ) : (
-          <form onSubmit={handleVerifyCode} className="space-y-4">
-            <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-md mb-4">
-              <p className="text-sm text-blue-800 dark:text-blue-300">
-                We sent a {expiryMinutes}-minute verification code to <strong>{email}</strong>
-              </p>
-            </div>
-
-            {successMessage && (
-              <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-md">
-                <p className="text-sm text-green-600 dark:text-green-400">{successMessage}</p>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--foreground)' }}
+                >
+                  Email Address
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  disabled={loading}
+                  className="w-full"
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--card-border)',
+                    color: 'var(--foreground)',
+                  }}
+                />
               </div>
-            )}
 
-            <div>
-              <label htmlFor="code" className="block text-sm font-medium mb-2">
-                Verification Code
-              </label>
-              <Input
-                id="code"
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="Enter 6-digit code"
-                required
-                maxLength={6}
+              {error && (
+                <div
+                  className="p-4 rounded-md"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid var(--color-red)',
+                  }}
+                >
+                  <p className="text-sm" style={{ color: 'var(--color-red)' }}>{error}</p>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full text-white font-medium"
                 disabled={loading}
-                className="text-center text-2xl tracking-widest"
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-md">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
-              </div>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading || code.length !== 6}
-            >
-              {loading ? 'Verifying...' : 'Verify & Create Account'}
-            </Button>
-
-            <div className="text-center space-y-2">
-              <button
-                type="button"
-                onClick={handleResendCode}
-                disabled={loading}
-                className="text-sm text-blue-600 hover:underline disabled:opacity-50"
+                style={{
+                  background: 'var(--color-primary)',
+                  boxShadow: 'var(--shadow-primary)',
+                }}
               >
-                Resend Code
-              </button>
-              <p className="text-sm">
+                {loading ? 'Sending...' : 'Send Verification Code'}
+              </Button>
+
+              <div className="text-center">
+                <p className="text-sm" style={{ color: 'var(--foreground-secondary)' }}>
+                  Already have an account?{' '}
+                  <Link
+                    href="/login"
+                    className="font-medium hover:underline"
+                    style={{ color: 'var(--color-primary)' }}
+                  >
+                    Log in
+                  </Link>
+                </p>
+              </div>
+            </form>
+          ) : (
+            <form onSubmit={handleVerifyCode} className="space-y-6">
+              <div
+                className="p-4 rounded-md mb-6"
+                style={{
+                  background: 'rgba(37, 99, 235, 0.1)',
+                  border: '1px solid var(--color-primary)',
+                }}
+              >
+                <p className="text-sm" style={{ color: 'var(--color-primary)' }}>
+                  We sent a {expiryMinutes}-minute verification code to <strong>{email}</strong>
+                </p>
+              </div>
+
+              {successMessage && (
+                <div
+                  className="p-4 rounded-md"
+                  style={{
+                    background: 'rgba(39, 174, 96, 0.1)',
+                    border: '1px solid var(--color-green)',
+                  }}
+                >
+                  <p className="text-sm" style={{ color: 'var(--color-green)' }}>{successMessage}</p>
+                </div>
+              )}
+
+              <div>
+                <label
+                  htmlFor="code"
+                  className="block text-sm font-medium mb-2"
+                  style={{ color: 'var(--foreground)' }}
+                >
+                  Verification Code
+                </label>
+                <Input
+                  id="code"
+                  type="text"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="000000"
+                  required
+                  maxLength={6}
+                  disabled={loading}
+                  className="w-full text-center text-2xl tracking-widest font-mono"
+                  style={{
+                    background: 'var(--background)',
+                    border: '1px solid var(--card-border)',
+                    color: 'var(--foreground)',
+                  }}
+                />
+              </div>
+
+              {error && (
+                <div
+                  className="p-4 rounded-md"
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid var(--color-red)',
+                  }}
+                >
+                  <p className="text-sm" style={{ color: 'var(--color-red)' }}>{error}</p>
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full text-white font-medium"
+                disabled={loading || code.length !== 6}
+                style={{
+                  background: 'var(--color-primary)',
+                  boxShadow: 'var(--shadow-primary)',
+                }}
+              >
+                {loading ? 'Verifying...' : 'Verify & Create Account'}
+              </Button>
+
+              <div className="text-center space-y-3">
                 <button
                   type="button"
-                  onClick={() => {
-                    setStep('email');
-                    setCode('');
-                    setError('');
-                    setSuccessMessage('');
-                  }}
-                  className="text-gray-600 hover:underline"
+                  onClick={handleResendCode}
+                  disabled={loading}
+                  className="text-sm font-medium hover:underline disabled:opacity-50"
+                  style={{ color: 'var(--color-primary)' }}
                 >
-                  Change Email
+                  Resend Code
                 </button>
-              </p>
-            </div>
-          </form>
-        )}
-      </Card>
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('email');
+                      setCode('');
+                      setError('');
+                      setSuccessMessage('');
+                    }}
+                    className="text-sm hover:underline"
+                    style={{ color: 'var(--foreground-secondary)' }}
+                  >
+                    Change Email
+                  </button>
+                </div>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
