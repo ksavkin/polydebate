@@ -185,7 +185,7 @@ export function MarketCard({
           e.currentTarget.style.boxShadow = "var(--shadow-sm)";
           e.currentTarget.style.transform = "translateY(0)";
         }}
-        onClick={() => window.location.href = `/market/${id}`}
+        onClick={() => window.location.href = `/market/${id}/debate`}
       >
       <CardHeader 
         className="overflow-hidden rounded-t-lg"
