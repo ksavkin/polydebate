@@ -120,10 +120,11 @@ export function MarketCard({
         }
 
         const wrapperElement = wrapperRef.current;
-        const rt = e.relatedTarget as Node | null;
+        const rt = e.relatedTarget;
 
         // If relatedTarget is still inside this wrapper, ignore the event
-        if (wrapperElement && rt && wrapperElement.contains(rt)) {
+        // Check if rt is a Node before calling contains
+        if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
           return;
         }
 
@@ -162,10 +163,11 @@ export function MarketCard({
         }}
         onMouseLeave={(e) => {
           const wrapperElement = wrapperRef.current;
-          const rt = e.relatedTarget as Node | null;
+          const rt = e.relatedTarget;
           
           // If we're moving to the button, keep the hover styles
-          if (wrapperElement && rt && wrapperElement.contains(rt)) {
+          // Check if rt is a Node before calling contains
+          if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
             return;
           }
           
@@ -938,10 +940,11 @@ export function MarketCard({
         }
 
         const wrapperElement = wrapperRef.current;
-        const rt = e.relatedTarget as Node | null;
+        const rt = e.relatedTarget;
 
         // If we moved back to the wrapper/card, keep it hovered
-        if (wrapperElement && rt && wrapperElement.contains(rt)) {
+        // Check if rt is a Node before calling contains
+        if (wrapperElement && rt && rt instanceof Node && wrapperElement.contains(rt)) {
           return;
         }
 
