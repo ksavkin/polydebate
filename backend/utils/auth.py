@@ -2,6 +2,7 @@
 JWT authentication utilities
 """
 import jwt
+import bcrypt
 from datetime import datetime, timedelta
 from functools import wraps
 from flask import request, jsonify
@@ -247,3 +248,48 @@ def optional_auth(f):
         return f(current_user=None, *args, **kwargs)
 
     return decorated_function
+
+
+# =============================================================================
+# Verification Code Hashing Utilities
+# =============================================================================
+
+def hash_verification_code(code: str) -> str:
+    """
+    Hash a verification code using bcrypt
+
+    Args:
+        code: Plain text verification code
+
+    Returns:
+        Hashed code as a string
+    """
+    # Convert code to bytes
+    code_bytes = code.encode('utf-8')
+
+    # Generate salt and hash
+    salt = bcrypt.gensalt()
+    hashed = bcrypt.hashpw(code_bytes, salt)
+
+    # Return as string
+    return hashed.decode('utf-8')
+
+
+def verify_verification_code(code: str, code_hash: str) -> bool:
+    """
+    Verify a verification code against its hash
+
+    Args:
+        code: Plain text verification code to verify
+        code_hash: Hashed code from database
+
+    Returns:
+        True if code matches hash, False otherwise
+    """
+    try:
+        code_bytes = code.encode('utf-8')
+        hash_bytes = code_hash.encode('utf-8')
+        return bcrypt.checkpw(code_bytes, hash_bytes)
+    except Exception as e:
+        logger.error(f"Error verifying code: {str(e)}", event='code_verification_error')
+        return False

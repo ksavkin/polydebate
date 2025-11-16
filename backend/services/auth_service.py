@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from typing import Optional, Tuple
 from models import Session, User, VerificationCode, CodeType
 from utils.logger import get_auth_logger
-from utils.auth import JWTAuth
+from utils.auth import JWTAuth, hash_verification_code, verify_verification_code
 from services.email_service import EmailService
 
 logger = get_auth_logger()
@@ -62,6 +62,7 @@ class AuthService:
 
             # Generate code
             code = self.generate_code()
+            code_hash = hash_verification_code(code)  # Hash the code before storing
             expires_at = datetime.utcnow() + timedelta(minutes=self.config.CODE_EXPIRATION_MINUTES)
 
             # Invalidate any existing signup codes for this email
@@ -75,7 +76,7 @@ class AuthService:
             verification_code = VerificationCode(
                 email=email,
                 name=name,
-                code=code,
+                code_hash=code_hash,  # Store hashed code
                 code_type=CodeType.SIGNUP,
                 expires_at=expires_at,
                 ip_address=ip
@@ -83,10 +84,10 @@ class AuthService:
             db.add(verification_code)
             db.commit()
 
-            # Send email
+            # Send email with plain code (not the hash)
             email_sent = self.email_service.send_verification_email(
                 to_email=email,
-                code=code,
+                code=code,  # Send plain code to user
                 code_type='signup',
                 user_name=name
             )
@@ -127,13 +128,19 @@ class AuthService:
                 logger.log_signup_attempt(email, ip, False, error='email_already_exists')
                 return False, 'Email address is already registered', None, 'email_exists'
 
-            # Find valid verification code
-            verification_code = db.query(VerificationCode).filter(
+            # Find all unused signup codes for this email (we'll verify hash below)
+            verification_codes = db.query(VerificationCode).filter(
                 VerificationCode.email == email,
-                VerificationCode.code == code,
                 VerificationCode.code_type == CodeType.SIGNUP,
                 VerificationCode.used_at.is_(None)
-            ).first()
+            ).all()
+
+            # Try to find a code that matches the hash
+            verification_code = None
+            for vc in verification_codes:
+                if verify_verification_code(code, vc.code_hash):
+                    verification_code = vc
+                    break
 
             if not verification_code:
                 logger.log_code_verification(email, ip, False, error='invalid_code')
@@ -204,6 +211,7 @@ class AuthService:
 
             # Generate code
             code = self.generate_code()
+            code_hash = hash_verification_code(code)  # Hash the code before storing
             expires_at = datetime.utcnow() + timedelta(minutes=self.config.CODE_EXPIRATION_MINUTES)
 
             # Invalidate any existing login codes for this user
@@ -217,7 +225,7 @@ class AuthService:
             verification_code = VerificationCode(
                 user_id=user.id,
                 email=email,
-                code=code,
+                code_hash=code_hash,  # Store hashed code
                 code_type=CodeType.LOGIN,
                 expires_at=expires_at,
                 ip_address=ip
@@ -225,10 +233,10 @@ class AuthService:
             db.add(verification_code)
             db.commit()
 
-            # Send email
+            # Send email with plain code (not the hash)
             email_sent = self.email_service.send_verification_email(
                 to_email=email,
-                code=code,
+                code=code,  # Send plain code to user
                 code_type='login',
                 user_name=user.name
             )
@@ -268,13 +276,19 @@ class AuthService:
                 logger.log_login_attempt(email, ip, False, error='user_not_found')
                 return False, 'Invalid email or verification code', None, 'invalid_credentials'
 
-            # Find valid verification code
-            verification_code = db.query(VerificationCode).filter(
+            # Find all unused login codes for this user (we'll verify hash below)
+            verification_codes = db.query(VerificationCode).filter(
                 VerificationCode.user_id == user.id,
-                VerificationCode.code == code,
                 VerificationCode.code_type == CodeType.LOGIN,
                 VerificationCode.used_at.is_(None)
-            ).first()
+            ).all()
+
+            # Try to find a code that matches the hash
+            verification_code = None
+            for vc in verification_codes:
+                if verify_verification_code(code, vc.code_hash):
+                    verification_code = vc
+                    break
 
             if not verification_code:
                 logger.log_code_verification(email, ip, False, error='invalid_code', user_id=user.id)
