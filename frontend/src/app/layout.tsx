@@ -25,7 +25,7 @@ export default function RootLayout({
       <body className={`${inter.variable} antialiased`}>
         <SearchProvider>
           <SharedLayout>
-            {children}
+        {children}
           </SharedLayout>
         </SearchProvider>
       </body>
