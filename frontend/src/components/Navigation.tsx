@@ -145,24 +145,27 @@ export function Navigation({
           <div className="flex items-center gap-2 shrink-0">
             {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                style={{
-                  color: "rgba(255, 255, 255, 0.9)",
-                  border: "none",
-                  backgroundColor: "transparent",
-                }}
-                className="hover:bg-white/10 transition-colors duration-150"
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                }}
-              >
-                How it works
-              </Button>
+              <Link href="/how-it-works">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  style={{
+                    color: "rgba(255, 255, 255, 0.9)",
+                    border: "none",
+                    backgroundColor: "transparent",
+                    cursor: "pointer",
+                  }}
+                  className="hover:bg-white/10 transition-colors duration-150 cursor-pointer"
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
+                  }}
+                >
+                  How it works
+                </Button>
+              </Link>
 
               {isAuthenticated ? (
                 <>

@@ -149,12 +149,12 @@ def stream_debate(debate_id):
             yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
             return
 
-        # Create event queue for this stream
-        event_queue = asyncio.Queue()
-
         # Create new event loop for this thread
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
+
+        # Create event queue for this stream (after setting event loop)
+        event_queue = asyncio.Queue()
 
         # Start the debate in the background
         async def run_debate_and_stream():
@@ -208,19 +208,25 @@ def stream_debate(debate_id):
                     if event_type == 'error':
                         # Skip empty error events entirely
                         if not event_data_obj:
-                            logger.debug(f"Skipping empty error event (None): {event}")
+                            logger.warning(f"Skipping empty error event (None): {event}")
                             continue
                         if not isinstance(event_data_obj, dict):
                             logger.warning(f"Skipping invalid error event (not dict): {event}")
                             continue
-                        if not event_data_obj.get('error') and not event_data_obj.get('message'):
-                            logger.debug(f"Skipping empty error event (no error/message): {event}")
+
+                        # Get error and message, filter out empty strings
+                        error_msg = event_data_obj.get('error', '').strip()
+                        message_msg = event_data_obj.get('message', '').strip()
+
+                        if not error_msg and not message_msg:
+                            logger.warning(f"Skipping empty error event (no error/message): {event}")
                             continue
-                        # Ensure at least one field is present
-                        if not event_data_obj.get('error'):
-                            event_data_obj['error'] = event_data_obj.get('message', 'Unknown error occurred')
-                        if not event_data_obj.get('message'):
-                            event_data_obj['message'] = event_data_obj.get('error', 'Unknown error occurred')
+
+                        # Ensure at least one field is present with non-empty value
+                        if not error_msg:
+                            event_data_obj['error'] = message_msg or 'Unknown error occurred'
+                        if not message_msg:
+                            event_data_obj['message'] = error_msg or 'Unknown error occurred'
                     
                     event_data = json.dumps(event_data_obj)
                     yield f"event: {event_type}\ndata: {event_data}\n\n"

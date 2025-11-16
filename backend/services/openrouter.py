@@ -17,9 +17,11 @@ class OpenRouterService:
         self.base_url = "https://openrouter.ai/api/v1"
         self.api_key = config.OPENROUTER_API_KEY
 
-    async def get_available_models(self, max_price_per_million: float = 0.5) -> Dict:
+    async def get_available_models(self, max_price_per_million: float = 15) -> Dict:
         """
         Get list of available AI models from OpenRouter
+
+        Returns whitelisted models filtered by price.
 
         Args:
             max_price_per_million: Maximum price per 1M tokens (default 0.5)
@@ -43,9 +45,23 @@ class OpenRouterService:
                 response.raise_for_status()
                 data = await response.json()
 
+                # Get allowed models from config
+                allowed_models = set(config.ALLOWED_MODELS)
+                logger.info(f"Allowed models whitelist: {allowed_models}")
+
                 # Filter and format models
                 models = []
+                filtered_by_price = []
+                filtered_by_whitelist = 0
+
                 for model in data.get('data', []):
+                    model_id = model.get('id', '')
+
+                    # Filter by whitelist
+                    if model_id not in allowed_models:
+                        filtered_by_whitelist += 1
+                        continue
+
                     # Calculate total price per million tokens
                     pricing = model.get('pricing', {})
                     input_price = float(pricing.get('prompt', 0))
@@ -56,7 +72,14 @@ class OpenRouterService:
 
                     # Filter by price
                     if total_per_million > max_price_per_million and not is_free:
+                        filtered_by_price.append({
+                            'id': model_id,
+                            'price': total_per_million
+                        })
+                        logger.info(f"Filtered by price: {model_id} (${total_per_million:.2f} per million, max=${max_price_per_million})")
                         continue
+
+                    logger.info(f"Accepted model: {model_id} (${total_per_million:.2f} per million, free={is_free})")
 
                     models.append({
                         'id': model.get('id'),
@@ -74,11 +97,13 @@ class OpenRouterService:
                         'supported': True
                     })
 
-                # Sort: free models first, then by price
-                models.sort(key=lambda x: (not x['is_free'], x['pricing']['total_per_million']))
-
                 free_count = sum(1 for m in models if m['is_free'])
                 paid_count = len(models) - free_count
+
+                logger.info(f"Filtering results: {len(models)} models accepted, {len(filtered_by_price)} filtered by price, {filtered_by_whitelist} filtered by whitelist")
+                if filtered_by_price:
+                    filtered_names = [f"{item['id']} (${item['price']:.2f})" for item in filtered_by_price]
+                    logger.info(f"Models filtered by price (>${max_price_per_million}): {filtered_names}")
 
                 return {
                     'models': models,

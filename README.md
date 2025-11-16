@@ -126,6 +126,20 @@ polydebate/
 - `POST /api/favorites` - Add favorite
 - `DELETE /api/favorites/:id` - Remove favorite
 
+## Real-time Debate Streaming
+
+The platform uses Server-Sent Events (SSE) to stream debates in real-time:
+
+**How it works:**
+1. Client creates a debate via `POST /api/debates`
+2. Client connects to SSE endpoint: `GET /api/debates/:id/stream`
+3. Backend streams events as AI models generate responses:
+   - `debate_started` - Debate initialization
+   - `model_response` - Each AI model's argument with predictions
+   - `round_complete` - Round finished
+   - `debate_complete` - All rounds finished with final summary
+   - `error` - Any errors during debate
+
 ## Environment Variables
 
 | Variable | Description | Required |
