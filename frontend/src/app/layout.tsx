@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { SharedLayout } from "@/components/SharedLayout";
+import { SearchProvider } from "@/contexts/SearchContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { FavoritesProvider } from "@/contexts/FavoritesContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -21,7 +25,15 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.variable} antialiased`}>
-        {children}
+        <AuthProvider>
+          <FavoritesProvider>
+            <SearchProvider>
+              <SharedLayout>
+                {children}
+              </SharedLayout>
+            </SearchProvider>
+          </FavoritesProvider>
+        </AuthProvider>
       </body>
     </html>
   );
