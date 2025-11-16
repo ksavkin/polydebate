@@ -68,3 +68,6 @@ build/
 
 # backend
 /backend/.venv
+
+
+backend/storage/polydebate.db
