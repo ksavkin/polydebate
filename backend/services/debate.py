@@ -161,7 +161,8 @@ class DebateService:
                         market_description=debate.market_description,
                         outcomes=debate.outcomes,
                         context=context,
-                        round_num=round_num
+                        round_num=round_num,
+                        is_final_round=(message_type == 'final')
                     )
 
                     logger.info(f"Received response from {model.model_id}: {len(response['content'])} chars")
