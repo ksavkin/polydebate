@@ -33,6 +33,7 @@
 
 # env files (can opt-in for committing if needed)
 /frontend/.env*
+.env
 
 # vercel
 /frontend/.vercel
@@ -41,7 +42,6 @@
 *.tsbuildinfo
 next-env.d.ts
 /backend/.env
-/backend/.env.example
 
 # Python
 __pycache__/
