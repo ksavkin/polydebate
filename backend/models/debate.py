@@ -9,6 +9,11 @@ import json
 import os
 from config import config
 from models.message import Message
+from database import get_db
+from models.db_models import (
+    DebateDB, DebateModelDB, DebateOutcomeDB,
+    MessageDB, MessagePredictionDB
+)
 
 
 @dataclass
@@ -103,55 +108,207 @@ class Debate:
         return data
 
     def save(self):
-        """Save debate to JSON file"""
-        file_path = os.path.join(config.DEBATES_DIR, f'{self.debate_id}.json')
-        with open(file_path, 'w') as f:
-            json.dump(self.to_dict(), f, indent=2)
+        """Save debate to database"""
+        db = get_db()
+        try:
+            # Check if debate already exists
+            existing = db.query(DebateDB).filter_by(debate_id=self.debate_id).first()
+
+            if existing:
+                # Update existing debate
+                existing.status = self.status
+                existing.paused = self.paused
+                existing.current_round = self.current_round
+                existing.final_summary = self.final_summary
+                existing.final_predictions = self.final_predictions
+                existing.completed_at = self.completed_at
+                existing.polymarket_odds = self.polymarket_odds
+            else:
+                # Create new debate
+                debate_db = DebateDB(
+                    debate_id=self.debate_id,
+                    status=self.status,
+                    paused=self.paused,
+                    market_id=self.market_id,
+                    market_question=self.market_question,
+                    market_description=self.market_description,
+                    polymarket_odds=self.polymarket_odds,
+                    rounds=self.rounds,
+                    current_round=self.current_round,
+                    final_summary=self.final_summary,
+                    final_predictions=self.final_predictions,
+                    created_at=self.created_at,
+                    completed_at=self.completed_at
+                )
+                db.add(debate_db)
+
+                # Add selected models
+                for model in self.selected_models:
+                    model_db = DebateModelDB(
+                        debate_id=self.debate_id,
+                        model_id=model.model_id,
+                        model_name=model.model_name,
+                        provider=model.provider
+                    )
+                    db.add(model_db)
+
+                # Add outcomes
+                for outcome in self.outcomes:
+                    outcome_db = DebateOutcomeDB(
+                        debate_id=self.debate_id,
+                        name=outcome['name'],
+                        price=outcome['price']
+                    )
+                    db.add(outcome_db)
+
+            # Save messages (delete and recreate for simplicity)
+            # This ensures messages are always in sync
+            db.query(MessageDB).filter_by(debate_id=self.debate_id).delete()
+
+            for msg in self.messages:
+                message_db = MessageDB(
+                    message_id=msg.message_id,
+                    debate_id=self.debate_id,
+                    round=msg.round,
+                    sequence=msg.sequence,
+                    model_id=msg.model_id,
+                    model_name=msg.model_name,
+                    message_type=msg.message_type,
+                    text=msg.text,
+                    audio_url=msg.audio_url,
+                    audio_duration=msg.audio_duration,
+                    timestamp=msg.timestamp
+                )
+                db.add(message_db)
+
+                # Add predictions
+                for outcome_name, percentage in msg.predictions.items():
+                    prediction_db = MessagePredictionDB(
+                        message_id=msg.message_id,
+                        outcome_name=outcome_name,
+                        percentage=percentage
+                    )
+                    db.add(prediction_db)
+
+            db.commit()
+
+        except Exception as e:
+            db.rollback()
+            raise e
+        finally:
+            db.close()
 
     @staticmethod
     def load(debate_id: str) -> Optional['Debate']:
-        """Load debate from JSON file"""
-        file_path = os.path.join(config.DEBATES_DIR, f'{debate_id}.json')
+        """Load debate from database"""
+        db = get_db()
+        try:
+            # Query debate
+            debate_db = db.query(DebateDB).filter_by(debate_id=debate_id).first()
 
-        if not os.path.exists(file_path):
-            return None
+            if not debate_db:
+                return None
 
-        with open(file_path, 'r') as f:
-            data = json.load(f)
+            # Load related models
+            models_db = db.query(DebateModelDB).filter_by(debate_id=debate_id).all()
+            selected_models = [
+                DebateModel(
+                    model_id=m.model_id,
+                    model_name=m.model_name,
+                    provider=m.provider
+                ) for m in models_db
+            ]
 
-        # Convert messages back to Message objects
-        messages = [Message(**msg) for msg in data.get('messages', [])]
-        data['messages'] = messages
+            # Load outcomes
+            outcomes_db = db.query(DebateOutcomeDB).filter_by(debate_id=debate_id).all()
+            outcomes = [
+                {'name': o.name, 'price': o.price}
+                for o in outcomes_db
+            ]
 
-        # Convert selected_models back to DebateModel objects
-        selected_models = [DebateModel(**m) for m in data['selected_models']]
-        data['selected_models'] = selected_models
+            # Load messages
+            messages_db = db.query(MessageDB).filter_by(debate_id=debate_id).order_by(
+                MessageDB.round, MessageDB.sequence
+            ).all()
 
-        return Debate(**data)
+            messages = []
+            for msg_db in messages_db:
+                # Load predictions for this message
+                predictions_db = db.query(MessagePredictionDB).filter_by(
+                    message_id=msg_db.message_id
+                ).all()
+                predictions = {
+                    p.outcome_name: p.percentage
+                    for p in predictions_db
+                }
+
+                # Create Message object
+                message = Message(
+                    message_id=msg_db.message_id,
+                    round=msg_db.round,
+                    sequence=msg_db.sequence,
+                    model_id=msg_db.model_id,
+                    model_name=msg_db.model_name,
+                    message_type=msg_db.message_type,
+                    text=msg_db.text,
+                    predictions=predictions,
+                    audio_url=msg_db.audio_url,
+                    audio_duration=msg_db.audio_duration,
+                    timestamp=msg_db.timestamp
+                )
+                messages.append(message)
+
+            # Create Debate object
+            debate = Debate(
+                debate_id=debate_db.debate_id,
+                status=debate_db.status,
+                market_id=debate_db.market_id,
+                market_question=debate_db.market_question,
+                market_description=debate_db.market_description,
+                outcomes=outcomes,
+                polymarket_odds=debate_db.polymarket_odds or {},
+                selected_models=selected_models,
+                rounds=debate_db.rounds,
+                current_round=debate_db.current_round,
+                messages=messages,
+                final_summary=debate_db.final_summary,
+                final_predictions=debate_db.final_predictions,
+                created_at=debate_db.created_at,
+                completed_at=debate_db.completed_at,
+                paused=debate_db.paused
+            )
+
+            return debate
+
+        finally:
+            db.close()
 
     @staticmethod
     def list_all() -> List[Dict]:
-        """List all debates"""
-        debates = []
+        """List all debates from database"""
+        db = get_db()
+        try:
+            # Query all debates ordered by created_at descending
+            debates_db = db.query(DebateDB).order_by(DebateDB.created_at.desc()).all()
 
-        if not os.path.exists(config.DEBATES_DIR):
+            debates = []
+            for debate_db in debates_db:
+                # Count models for this debate
+                models_count = db.query(DebateModelDB).filter_by(
+                    debate_id=debate_db.debate_id
+                ).count()
+
+                debates.append({
+                    'debate_id': debate_db.debate_id,
+                    'market_question': debate_db.market_question,
+                    'status': debate_db.status,
+                    'models_count': models_count,
+                    'rounds': debate_db.rounds,
+                    'created_at': debate_db.created_at,
+                    'completed_at': debate_db.completed_at
+                })
+
             return debates
 
-        for filename in os.listdir(config.DEBATES_DIR):
-            if filename.endswith('.json'):
-                debate_id = filename[:-5]
-                debate = Debate.load(debate_id)
-                if debate:
-                    debates.append({
-                        'debate_id': debate.debate_id,
-                        'market_question': debate.market_question,
-                        'status': debate.status,
-                        'models_count': len(debate.selected_models),
-                        'rounds': debate.rounds,
-                        'created_at': debate.created_at,
-                        'completed_at': debate.completed_at
-                    })
-
-        # Sort by created_at descending
-        debates.sort(key=lambda x: x['created_at'], reverse=True)
-        return debates
+        finally:
+            db.close()
