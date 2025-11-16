@@ -45,6 +45,13 @@ class Config:
     MAX_ROUNDS = int(os.getenv('MAX_ROUNDS', 10))
     MODEL_TIMEOUT_SECONDS = int(os.getenv('MODEL_TIMEOUT_SECONDS', 30))
 
+    # Allowed AI Models (comma-separated list)
+    ALLOWED_MODELS = os.getenv(
+        'ALLOWED_MODELS',
+        'openai/gpt-5.1-chat,anthropic/claude-haiku-4.5,google/gemini-2.5-flash-lite,x-ai/grok-4-fast,qwen/qwen-turbo,deepseek/deepseek-chat-v3.1'
+    ).split(',')
+    ALLOWED_MODELS = [m.strip() for m in ALLOWED_MODELS if m.strip()]  # Clean whitespace
+
     # Storage paths
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
     STORAGE_DIR = os.path.join(BASE_DIR, 'storage')
