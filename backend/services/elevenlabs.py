@@ -16,6 +16,11 @@ class ElevenLabsService:
     def __init__(self):
         self.base_url = "https://api.elevenlabs.io/v1"
         self.api_key = config.ELEVENLABS_API_KEY
+        if self.api_key:
+            # Log first few chars for debugging (don't log full key)
+            logger.info(f"ElevenLabs API key configured: {self.api_key[:10]}...")
+        else:
+            logger.warning("ElevenLabs API key not found in environment variables")
 
         # Map model names to different voices for variety
         self.voice_map = {
@@ -129,12 +134,15 @@ class ElevenLabsService:
 
         except aiohttp.ClientResponseError as e:
             logger.error(f"ElevenLabs API error: {e.status} - {e.message}")
+            if hasattr(e, 'message') and e.message:
+                logger.error(f"Error details: {e.message}")
             if e.status == 401:
+                logger.error("ElevenLabs API returned 401 - Check your API key in .env file (ELEVENLABS_API_KEY). This usually means: 1) Invalid API key, 2) Quota exceeded, or 3) Wrong API key is being used.")
                 return {
                     'audio_url': None,
                     'audio_duration': 0,
                     'voice_id': voice_id,
-                    'error': 'Invalid API key'
+                    'error': 'Invalid API key or quota exceeded - check ELEVENLABS_API_KEY in .env'
                 }
             elif e.status == 429:
                 return {

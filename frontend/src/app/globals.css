@@ -162,3 +162,44 @@ body {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;  /* Chrome, Safari and Opera */
 }
+
+/* Polymarket animated gradient */
+@keyframes polymarketGradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.polymarket-gradient {
+  background: linear-gradient(270deg, #8B5CF6, #A855F7, #9333EA, #7C3AED);
+  background-size: 400% 400%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: polymarketGradient 8s ease infinite;
+  font-weight: 600;
+}
+
+@keyframes polymarketIconGradient {
+  0% {
+    stop-color: #8B5CF6;
+  }
+  25% {
+    stop-color: #A855F7;
+  }
+  50% {
+    stop-color: #9333EA;
+  }
+  75% {
+    stop-color: #7C3AED;
+  }
+  100% {
+    stop-color: #8B5CF6;
+  }
+}

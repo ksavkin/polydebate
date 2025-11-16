@@ -13,9 +13,9 @@ interface TransformedMarket {
   market_type?: 'binary' | 'categorical';
   outcomes: Array<{
     name: string;
-    slug: string;
+    slug?: string;
     price: number;
-    shares: string;
+    shares?: string;
   }>;
   volume: string;
   volume_24h?: string;

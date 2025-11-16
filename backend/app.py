@@ -21,6 +21,9 @@ from models.verification_code import VerificationCode
 from models.favorite import UserFavorite
 from models.db_models import DebateDB, DebateModelDB, DebateOutcomeDB, MessageDB, MessagePredictionDB
 
+# Import all models to ensure they're registered with SQLAlchemy before table creation
+import models  # This imports all models including debate models
+
 # Setup logging
 logging.basicConfig(
     level=logging.DEBUG if config.DEBUG else logging.INFO,

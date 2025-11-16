@@ -1,7 +1,7 @@
 .orbContainer {
   position: relative;
-  width: 180px;
-  height: 180px;
+  width: 200px;
+  height: 200px;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -15,16 +15,16 @@
 
 .orb {
   position: absolute;
-  width: 180px;
+  width: 200px;
   aspect-ratio: 1;
   border-radius: 50%;
   background: #060606;
-  filter: blur(20px);
+  filter: blur(24px);
   transition: all 0.3s ease;
 }
 
 .orbContainer:hover .orb {
-  width: 200px;
+  width: 220px;
   animation: rotate 6s infinite;
 }
 
@@ -34,6 +34,66 @@
   }
   100% {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateChaotic {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(120deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  75% {
+    transform: rotate(300deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes rotateChaotic1 {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  20% {
+    transform: rotate(90deg) scale(1.05);
+  }
+  40% {
+    transform: rotate(180deg) scale(0.95);
+  }
+  60% {
+    transform: rotate(270deg) scale(1.1);
+  }
+  80% {
+    transform: rotate(320deg) scale(1);
+  }
+  100% {
+    transform: rotate(360deg) scale(1);
+  }
+}
+
+@keyframes rotateChaotic2 {
+  0% {
+    transform: rotate(0deg) scale(1);
+  }
+  15% {
+    transform: rotate(-70deg) scale(0.9);
+  }
+  35% {
+    transform: rotate(-150deg) scale(1.08);
+  }
+  55% {
+    transform: rotate(-220deg) scale(0.95);
+  }
+  75% {
+    transform: rotate(-300deg) scale(1.05);
+  }
+  100% {
+    transform: rotate(-360deg) scale(1);
   }
 }
 
@@ -57,7 +117,7 @@
     2% 35%,
     39% 35%
   );
-  animation: rotate 6s linear infinite;
+  animation: rotate 25s linear infinite;
   transition: all 0.3s ease;
 }
 
@@ -67,7 +127,7 @@
   top: auto;
   bottom: -25%;
   background: #1c8cff;
-  animation-duration: 8s;
+  animation-duration: 30s;
   clip-path: polygon(
     20% 0%,
     0% 20%,
@@ -88,3 +148,31 @@
   width: 170%;
 }
 
+.orbContainer.speaking .orb {
+  animation: rotateChaotic 4s infinite;
+  width: 210px;
+}
+
+.orbContainer.speaking .orbInner {
+  animation: rotateChaotic1 1.8s ease-in-out infinite;
+  width: 165%;
+}
+
+.orbContainer.speaking .orbInner:nth-child(2) {
+  animation: rotateChaotic2 2.3s ease-in-out infinite reverse;
+}
+
+@keyframes glowPulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1.1;
+    transform: scale(1.05);
+  }
+}
+
+.orbContainer.speaking {
+  animation: glowPulse 1.5s ease-in-out infinite;
+}
