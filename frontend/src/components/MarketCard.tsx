@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import BlurText from "@/components/BlurText";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 
 interface Outcome {
   name: string;
@@ -51,6 +51,9 @@ export function MarketCard({
   isNew = false,
 }: MarketCardProps) {
   const [hoveredIcon, setHoveredIcon] = useState<'save' | 'share' | null>(null);
+  const [isCardHovered, setIsCardHovered] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
 
   // Filter out outcomes with 0 shares and sort by price (highest to lowest)
   const sortedOutcomes = useMemo(() => {
@@ -74,18 +77,58 @@ export function MarketCard({
     // TODO: Implement share functionality
   };
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
     <div 
+      ref={wrapperRef}
       className="relative group" 
       style={{ 
         overflow: "visible",
         zIndex: 1,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.zIndex = "10";
+        // Clear any pending timeout immediately
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+        if (e.currentTarget) {
+          e.currentTarget.style.zIndex = "10";
+        }
+        // Immediately set hovered state
+        setIsCardHovered(true);
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.zIndex = "1";
+        // Clear any existing timeout
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+
+        const wrapperElement = wrapperRef.current;
+        const rt = e.relatedTarget as Node | null;
+
+        // If relatedTarget is still inside this wrapper, ignore the event
+        if (wrapperElement && rt && wrapperElement.contains(rt)) {
+          return;
+        }
+
+        // We really left this card → hide it with a tiny delay
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsCardHovered(false);
+          if (wrapperElement) {
+            wrapperElement.style.zIndex = "1";
+          }
+          hoverTimeoutRef.current = null;
+        }, 20);
       }}
     >
       <Card
@@ -361,142 +404,202 @@ export function MarketCard({
           </p>
         )}
       </CardHeader>
-      <CardContent className="space-y-2 flex-1 flex flex-col overflow-hidden">
-        {/* Outcomes - Show up to 4 outcomes */}
-        {sortedOutcomes.length === 2 ? (
-          // Half-circle indicator for 2-outcome markets
-          <div className="flex flex-col items-center gap-2 py-1">
-            {/* SVG Half-circle */}
-            <div className="relative" style={{ width: "120px", height: "60px" }}>
+      <CardContent className="space-y-2 flex-1 flex flex-col">
+        {/* Outcomes - Show arc for 1-2 outcomes, or top 2 outcomes for 3+ */}
+        {(outcomes.length === 1 || outcomes.length === 2) ? (
+          // Circular arc indicator for 2-outcome markets
+          <div className="flex flex-col items-center justify-center gap-2 py-4" style={{ minHeight: "140px" }}>
+            {/* SVG Circular Arc */}
+            <div className="relative" style={{ width: "100px", height: "100px", minHeight: "100px", flexShrink: 0 }}>
               <svg
-                width="120"
-                height="60"
-                viewBox="0 0 140 70"
-                className="absolute inset-0"
-                style={{ width: "100%", height: "100%" }}
+                width="100"
+                height="100"
+                viewBox="0 0 100 100"
+                style={{ width: "100%", height: "100%", display: "block", position: "relative" }}
               >
-                {/* Background arc (full half-circle) - gray */}
+                {/* Background arc - gray (fixed 180-degree half circle on top) */}
                 <path
-                  d="M 20 60 A 50 50 0 0 1 120 60"
+                  id="gauge-arc"
+                  d="M 10 50 A 40 40 0 0 1 90 50"
                   fill="none"
-                  stroke="var(--color-soft-gray)"
-                  strokeWidth="10"
+                  stroke="#d0d0d0"
+                  strokeWidth="8"
                   strokeLinecap="round"
+                  pathLength={100}
                 />
-                {/* Progress arc - shows first outcome percentage */}
+                {/* Progress arc - fills proportionally using strokeDasharray */}
                 {(() => {
                   // For Yes/No markets, show the "Yes" outcome percentage
-                  // Find which outcome is "Yes" or use first outcome (highest price after sorting)
-                  const yesOutcome = sortedOutcomes.find(o => o.name.toLowerCase() === "yes" || o.name.toLowerCase() === "up") || sortedOutcomes[0];
+                  // Use sortedOutcomes if available, otherwise fall back to original outcomes
+                  const outcomesToUse = sortedOutcomes.length > 0 ? sortedOutcomes : outcomes;
+                  if (outcomesToUse.length === 0) return null;
+                  
+                  const yesOutcome = outcomesToUse.find(o => o.name.toLowerCase() === "yes" || o.name.toLowerCase() === "up") || outcomesToUse[0];
+                  if (!yesOutcome) return null;
                   const percentage = Math.max(0, Math.min(1, yesOutcome.price)); // clamp 0..1
                   
-                  // Red for low percentage (< 50%), green for high (>= 50%)
-                  const arcColor = percentage < 0.5 ? "var(--color-red)" : "var(--color-green)";
-                  
-                  const radius = 50;
-                  const centerX = 70; // matches background arc
-                  const centerY = 60; // matches background arc
-                  
-                  // Gauge is a half-circle from left (180°) to right (0°)
-                  // For percentage, we fill from left (180°) towards right
-                  // 0% = 180° (no fill), 100% = 0° (full fill)
-                  const startAngleDeg = 180;
-                  const endAngleDeg = 180 - percentage * 180;
-                  
-                  const startRad = (startAngleDeg * Math.PI) / 180;
-                  const endRad = (endAngleDeg * Math.PI) / 180;
-                  
-                  const startX = centerX + radius * Math.cos(startRad);
-                  const startY = centerY - radius * Math.sin(startRad); // NOTE: minus for top half
-                  const endX = centerX + radius * Math.cos(endRad);
-                  const endY = centerY - radius * Math.sin(endRad); // NOTE: minus for top half
-                  
-                  const largeArcFlag = 0; // always small arc (≤ 180°)
-                  const sweepFlag = 1; // same direction as gray arc
-                  
+                  // Don't render if percentage is 0
                   if (percentage <= 0) return null;
+                  
+                  // Red for low percentage (< 50%), green for high (>= 50%)
+                  const arcColor = percentage < 0.5 ? "#ef4444" : "#27ae60";
                   
                   return (
                     <path
-                      key="progress-arc"
-                      d={`M ${startX} ${startY} A ${radius} ${radius} 0 ${largeArcFlag} ${sweepFlag} ${endX} ${endY}`}
+                      d="M 10 50 A 40 40 0 0 1 90 50"
                       fill="none"
                       stroke={arcColor}
-                      strokeWidth="10"
+                      strokeWidth="8"
                       strokeLinecap="round"
+                      pathLength={100}
+                      strokeDasharray="100"
+                      strokeDashoffset={100 - percentage * 100}
                       className="transition-all duration-300"
                     />
                   );
                 })()}
               </svg>
+              {/* Percentage display in center of circle */}
+              <div 
+                className="absolute inset-0 flex flex-col items-center justify-center"
+                style={{ lineHeight: "var(--leading-base)" }}
+              >
+                {(() => {
+                  // Use sortedOutcomes if available, otherwise fall back to original outcomes
+                  const outcomesToUse = sortedOutcomes.length > 0 ? sortedOutcomes : outcomes;
+                  const yesOutcome = outcomesToUse.find(o => o.name.toLowerCase() === "yes" || o.name.toLowerCase() === "up") || outcomesToUse[0];
+                  if (!yesOutcome) return null;
+                  const percentage = Math.round(yesOutcome.price * 100);
+                  const isYes = yesOutcome.name.toLowerCase() === "yes" || yesOutcome.name.toLowerCase() === "up";
+                  
+                  return (
+                    <>
+                      <div 
+                        className="text-h2 font-bold tabular-nums"
+                        style={{ 
+                          color: "var(--foreground)",
+                          lineHeight: "var(--leading-tight)",
+                        }}
+                      >
+                        {percentage}%
+                      </div>
+                      <div 
+                        className="text-caption font-medium"
+                        style={{ 
+                          color: "var(--foreground-secondary)",
+                          lineHeight: "var(--leading-base)",
+                          fontSize: "0.75rem",
+                        }}
+                      >
+                        chance
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
             </div>
-            {/* Percentage display below the half-circle */}
-            <div 
-              className="text-center"
-              style={{ lineHeight: "var(--leading-base)" }}
-            >
-              {(() => {
-                // Find Yes/Up outcome or use first outcome (highest price after sorting)
-                const yesOutcome = sortedOutcomes.find(o => o.name.toLowerCase() === "yes" || o.name.toLowerCase() === "up") || sortedOutcomes[0];
-                const percentage = Math.round(yesOutcome.price * 100);
-                const isYes = yesOutcome.name.toLowerCase() === "yes" || yesOutcome.name.toLowerCase() === "up";
-                
-                return (
-                  <>
-                    <div 
-                      className="text-h2 font-bold tabular-nums"
-                      style={{ 
-                        color: "var(--foreground)",
-                        lineHeight: "var(--leading-tight)",
-                      }}
-                    >
-                      {percentage}%
-                    </div>
-                    <div 
-                      className="text-caption font-medium"
-                      style={{ 
-                        color: "var(--foreground)",
-                        lineHeight: "var(--leading-base)",
-                      }}
-                    >
-                      {isYes ? "Yes" : yesOutcome.name}
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
-            {/* Yes/No indicators (non-clickable) */}
-            <div className="flex gap-1.5 w-full">
-              {sortedOutcomes.map((outcome, idx) => {
+            {/* Outcomes list with shares */}
+            <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col w-full">
+              {(sortedOutcomes.length > 0 ? sortedOutcomes : outcomes).map((outcome, idx) => {
+                const percentage = Math.round(outcome.price * 100);
                 const isYes = outcome.name.toLowerCase() === "yes" || outcome.name.toLowerCase() === "up";
                 const isNo = outcome.name.toLowerCase() === "no" || outcome.name.toLowerCase() === "down";
                 
                 return (
                   <div 
                     key={outcome.name}
-                    className="flex-1 flex items-center justify-center px-2 py-1 rounded border cursor-default" 
                     style={{ 
-                      borderColor: isYes ? "var(--color-green)" : isNo ? "var(--color-red)" : "var(--card-border)", 
-                      backgroundColor: isYes ? "rgba(39, 174, 96, 0.05)" : isNo ? "rgba(239, 68, 68, 0.05)" : "transparent"
+                      lineHeight: "var(--leading-base)",
+                      marginBottom: idx < (sortedOutcomes.length > 0 ? sortedOutcomes : outcomes).length - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
                     }}
                   >
-                    <span 
-                      className="text-caption font-semibold"
-                      style={{ 
-                        color: isYes ? "var(--color-green)" : isNo ? "var(--color-red)" : "var(--foreground-secondary)"
-                      }}
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span 
+                          className="text-body font-medium block truncate"
+                          style={{ 
+                            color: "var(--foreground)",
+                            lineHeight: "var(--leading-base)",
+                          }}
+                          title={outcome.name}
+                        >
+                          {outcome.name}
+                        </span>
+                        {outcome.shares && (
+                          <span 
+                            className="text-caption tabular-nums"
+                            style={{ 
+                              color: "var(--foreground-secondary)",
+                              lineHeight: "var(--leading-base)",
+                            }}
+                          >
+                            {parseFloat(outcome.shares).toLocaleString()} shares
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <span 
+                          className="text-body font-semibold tabular-nums"
+                          style={{ 
+                            color: "var(--foreground)",
+                            lineHeight: "var(--leading-base)",
+                          }}
+                        >
+                          {percentage}%
+                        </span>
+                        <div className="flex gap-1">
+                          <div 
+                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                            style={{
+                              backgroundColor: "rgba(39, 174, 96, 0.05)",
+                              borderColor: "var(--color-green)",
+                            }}
+                          >
+                            <span 
+                              className="text-caption font-semibold"
+                              style={{ color: "var(--color-green)" }}
+                            >
+                              Yes
+                            </span>
+                          </div>
+                          <div 
+                            className="h-6 px-2 flex items-center justify-center rounded border cursor-default"
+                            style={{
+                              backgroundColor: "rgba(239, 68, 68, 0.05)",
+                              borderColor: "var(--color-red)",
+                            }}
+                          >
+                            <span 
+                              className="text-caption font-semibold"
+                              style={{ color: "var(--color-red)" }}
+                            >
+                              No
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div 
+                      className="relative h-1 rounded-full overflow-hidden"
+                      style={{ backgroundColor: "var(--color-soft-gray)" }}
                     >
-                      {outcome.name}
-                    </span>
+                      <div
+                        className="h-full transition-all duration-300 rounded-full"
+                        style={{ 
+                          width: `${percentage}%`,
+                          backgroundColor: isYes ? "var(--color-green)" : "var(--color-primary)",
+                        }}
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
         ) : (
-          // Regular progress bars for 3+ outcomes
+          // Regular progress bars for 3+ outcomes (show top 2)
           <div style={{ gap: "calc(var(--leading-base) * 0.5em)" }} className="flex flex-col">
-            {sortedOutcomes.slice(0, 4).map((outcome, idx) => {
+            {sortedOutcomes.slice(0, 2).map((outcome, idx) => {
               const percentage = Math.round(outcome.price * 100);
               const isYes = outcome.name.toLowerCase() === "yes" || idx === 0;
               
@@ -505,7 +608,7 @@ export function MarketCard({
                   key={outcome.name} 
                   style={{ 
                     lineHeight: "var(--leading-base)",
-                    marginBottom: idx < Math.min(sortedOutcomes.length, 4) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
+                    marginBottom: idx < Math.min(sortedOutcomes.length, 2) - 1 ? "calc(var(--leading-base) * 0.5em)" : "0",
                   }}
                 >
                   <div className="flex items-center justify-between gap-2">
@@ -589,7 +692,7 @@ export function MarketCard({
                 </div>
               );
             })}
-            {sortedOutcomes.length > 4 && (
+            {sortedOutcomes.length > 2 && (
               <button
                 onClick={(e) => {
                   e.stopPropagation();
@@ -602,7 +705,7 @@ export function MarketCard({
                   paddingTop: "calc(var(--leading-base) * 0.25em)",
                 }}
               >
-                    +{sortedOutcomes.length - 4} more
+                    +{sortedOutcomes.length - 2} more
               </button>
             )}
           </div>
@@ -619,6 +722,15 @@ export function MarketCard({
           {/* Left side: Volume, Liquidity, Resolution Source */}
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1">
+              <span 
+                className="text-caption"
+                style={{ 
+                  color: "var(--foreground-secondary)",
+                  lineHeight: "var(--leading-base)",
+                }}
+              >
+                Volume
+              </span>
               <span 
                 className="text-caption tabular-nums"
                 style={{ 
@@ -777,6 +889,69 @@ export function MarketCard({
         </div>
       </CardContent>
     </Card>
+    
+    {/* Start AI Debate Button - slides out from bottom on hover */}
+    <button
+      data-role="start-ai-debate"
+      onClick={(e) => {
+        e.stopPropagation();
+        // TODO: Navigate to debate page
+        window.location.href = `/market/${id}/debate`;
+      }}
+      onMouseEnter={(e) => {
+        e.stopPropagation();
+        // Clear any pending timeout to keep button visible
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+        setIsCardHovered(true);
+        e.currentTarget.style.backgroundColor = "var(--nav-bg)";
+      }}
+      onMouseLeave={(e) => {
+        e.stopPropagation();
+        e.currentTarget.style.backgroundColor = "var(--color-charcoal)";
+
+        if (hoverTimeoutRef.current) {
+          clearTimeout(hoverTimeoutRef.current);
+          hoverTimeoutRef.current = null;
+        }
+
+        const wrapperElement = wrapperRef.current;
+        const rt = e.relatedTarget as Node | null;
+
+        // If we moved back to the wrapper/card, keep it hovered
+        if (wrapperElement && rt && wrapperElement.contains(rt)) {
+          return;
+        }
+
+        // Otherwise we left both button and card → hide
+        hoverTimeoutRef.current = setTimeout(() => {
+          setIsCardHovered(false);
+          if (wrapperElement) {
+            wrapperElement.style.zIndex = "1";
+          }
+          hoverTimeoutRef.current = null;
+        }, 30);
+      }}
+      className="absolute left-0 right-0 transition-all duration-300 ease-out"
+      style={{
+        bottom: isCardHovered ? "8px" : "-48px",
+        opacity: isCardHovered ? 1 : 0,
+        backgroundColor: "var(--color-charcoal)",
+        color: "var(--color-white)",
+        padding: "10px 6px",
+        borderRadius: "1.5rem",
+        fontSize: "var(--text-base)",
+        fontWeight: 500,
+        lineHeight: "var(--leading-base)",
+        boxShadow: "var(--shadow-md)",
+        pointerEvents: isCardHovered ? "auto" : "none",
+        zIndex: 20,
+      }}
+    >
+      Start AI Debate
+    </button>
     </div>
   );
 }

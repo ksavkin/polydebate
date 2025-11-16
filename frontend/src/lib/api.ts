@@ -10,12 +10,23 @@ export interface MarketOutcome {
   shares?: string;
 }
 
+export interface Tag {
+  id: string;
+  label: string;
+  slug: string;
+  createdAt?: string;
+  updatedAt?: string;
+  publishedAt?: string;
+  updatedBy?: number;
+  forceShow?: boolean;
+}
+
 export interface Market {
   id: string;
   question: string;
   description?: string;
   category: string;
-  tag_id?: string;
+  tag_id?: string | Tag;
   market_type?: 'binary' | 'categorical';
   outcomes: MarketOutcome[];
   volume: string;

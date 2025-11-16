@@ -29,7 +29,7 @@ const transformMarket = (market: Market) => {
     question: market.question,
     description: market.description,
     category: market.category,
-    tag_id: market.tag_id,
+    tag_id: typeof market.tag_id === 'object' && market.tag_id !== null ? market.tag_id.id : market.tag_id,
     market_type: market.market_type,
     outcomes: market.outcomes.map(outcome => ({
       name: outcome.name,
