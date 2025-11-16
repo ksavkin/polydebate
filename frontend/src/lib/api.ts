@@ -332,7 +332,41 @@ class ApiClient {
   }
 
   async getDebateResults(debateId: string): Promise<DebateResults> {
-    return this.fetchJson<DebateResults>(`/api/debate/${debateId}/results`);
+    // Use the main debate endpoint - it returns all debate data including messages
+    // We need to fetch the full debate object which includes messages, final_summary, etc.
+    const debate = await this.fetchJson<any>(`/api/debate/${debateId}`);
+    
+    // Transform to DebateResults format
+    // Note: summary and predictions will be added in Phase 5
+    return {
+      debate_id: debate.debate_id,
+      status: debate.status as 'completed',
+      market: {
+        id: debate.market_id,
+        question: debate.market_question,
+        outcomes: debate.outcomes || []
+      },
+      summary: debate.final_summary || {
+        overall: '',
+        agreements: [],
+        disagreements: [],
+        consensus: '',
+        model_rationales: []
+      },
+      final_predictions: debate.final_predictions || {},
+      statistics: {
+        average_prediction: {},
+        median_prediction: {},
+        prediction_variance: 0,
+        polymarket_odds: debate.polymarket_odds || {},
+        ai_vs_market_delta: '',
+        total_messages: debate.messages?.length || 0,
+        total_duration_seconds: 0,
+        models_count: debate.selected_models?.length || 0,
+        rounds_completed: debate.current_round || debate.rounds || 0
+      },
+      completed_at: debate.completed_at || new Date().toISOString()
+    };
   }
 
   async getDebateTranscript(debateId: string): Promise<{ debate_id: string; messages: DebateMessage[] }> {

@@ -1,19 +1,20 @@
+// Orb.tsx
 "use client";
 
 import styles from "./Orb.module.css";
 
 interface OrbColorConfig {
-  color1: string; // First inner orb color
-  color2: string; // Second inner orb color
-  glow1: string; // First glow color
-  glow2: string; // Second glow color
+  color1: string;
+  color2: string;
+  glow1: string;
+  glow2: string;
 }
 
 interface OrbProps {
   colorConfig?: OrbColorConfig;
+  isSpeaking?: boolean;
 }
 
-// Default AI debate engine colors
 const defaultColors: OrbColorConfig = {
   color1: '#ff3e1c',
   color2: '#1c8cff',
@@ -21,12 +22,14 @@ const defaultColors: OrbColorConfig = {
   glow2: '#1c8cff88',
 };
 
-export function Orb({ colorConfig = defaultColors }: OrbProps) {
+export function Orb({ colorConfig = defaultColors, isSpeaking = false }: OrbProps) {
   return (
     <div 
-      className={styles.orbContainer}
+      className={`${styles.orbContainer} ${isSpeaking ? styles.speaking : ''}`}
       style={{
-        filter: `drop-shadow(0 0 6px ${colorConfig.glow1}) drop-shadow(0 0 6px ${colorConfig.glow2})`,
+        filter: isSpeaking
+          ? `drop-shadow(0 0 20px ${colorConfig.glow1}) drop-shadow(0 0 12px ${colorConfig.glow2}) drop-shadow(0 0 30px ${colorConfig.glow1})`
+          : `drop-shadow(0 0 6px ${colorConfig.glow1}) drop-shadow(0 0 6px ${colorConfig.glow2})`,
       }}
     >
       <div className={styles.orb}>
@@ -46,4 +49,3 @@ export function Orb({ colorConfig = defaultColors }: OrbProps) {
     </div>
   );
 }
-

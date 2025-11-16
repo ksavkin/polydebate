@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { apiClient, type Market, type Model, type DebateStartResponse, type DebateMessage, type DebateResults } from "@/lib/api";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Orb } from "@/components/Orb";
+import { DebateChat } from "@/components/DebateChat";
 import Link from "next/link";
 
 interface OrbColorConfig {
@@ -36,6 +37,7 @@ export default function DebatePage() {
   const [debateResults, setDebateResults] = useState<DebateResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [debateCompleteEventReceived, setDebateCompleteEventReceived] = useState(false);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -141,8 +143,16 @@ export default function DebatePage() {
       });
 
       eventSource.addEventListener('message', (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        handleStreamEvent('message', data);
+        try {
+          if (!event.data || event.data.trim() === '') {
+            return; // Skip empty messages
+          }
+          const data = JSON.parse(event.data);
+          handleStreamEvent('message', data);
+        } catch (err) {
+          console.error('Error parsing message event:', err, event.data);
+          // Don't break the stream on parse errors
+        }
       });
 
       eventSource.addEventListener('round_complete', (event: MessageEvent) => {
@@ -153,32 +163,102 @@ export default function DebatePage() {
       eventSource.addEventListener('debate_complete', async (event: MessageEvent) => {
         const data = JSON.parse(event.data);
         handleStreamEvent('debate_complete', data);
+        setDebateCompleteEventReceived(true); // Mark that debate_complete event was received
         eventSource.close();
         eventSourceRef.current = null;
 
-        try {
-          const results = await apiClient.getDebateResults(response.debate_id);
-          setDebateResults(results);
-          setStatus('completed');
-        } catch (err) {
-          console.error('Error fetching results:', err);
-        }
+        // Listen for the truly complete event (when last audio finishes)
+        const handleTrulyComplete = async () => {
+          window.removeEventListener('debate-truly-complete', handleTrulyComplete);
+          
+          // Wait a bit for the backend to finish saving the debate
+          await new Promise(resolve => setTimeout(resolve, 500));
+
+          // Retry logic: try up to 3 times with increasing delays
+          let retries = 3;
+          let delay = 1000;
+          while (retries > 0) {
+            try {
+              const results = await apiClient.getDebateResults(response.debate_id);
+              setDebateResults(results);
+              setStatus('completed');
+              return; // Success, exit retry loop
+            } catch (err) {
+              retries--;
+              if (retries === 0) {
+                console.error('Error fetching results after retries:', err);
+                // Don't set status to error - the debate completed, we just couldn't fetch results
+                // The messages are already in state from the stream
+                setStatus('completed');
+              } else {
+                console.warn(`Failed to fetch results, retrying in ${delay}ms... (${retries} retries left)`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; // Exponential backoff
+              }
+            }
+          }
+        };
+        
+        window.addEventListener('debate-truly-complete', handleTrulyComplete);
       });
 
       eventSource.addEventListener('error', (event: MessageEvent) => {
         try {
-          const data = JSON.parse(event.data || '{}');
-          handleStreamEvent('error', data);
+          if (!event.data || event.data.trim() === '') {
+            return; // Skip empty error events
+          }
+          const data = JSON.parse(event.data);
+          
+          // Only handle if there's actual error data (not empty object)
+          const hasErrorData = data.error || data.message;
+          const isEmpty = Object.keys(data).length === 0;
+          
+          if (hasErrorData && !isEmpty) {
+            console.error('SSE application error event received:', data);
+            handleStreamEvent('error', data);
+          }
+          // Silently ignore empty error objects - don't log them
         } catch (err) {
-          console.error('Error parsing error event:', err);
+          // Silently ignore parsing errors for empty error events
         }
       });
 
+      // Track error count to avoid spamming
+      let errorCount = 0;
+      const maxErrors = 3;
+      
       eventSource.onerror = (err) => {
-        console.error('SSE error:', err);
+        errorCount++;
+        console.warn(`SSE connection error (${errorCount}/${maxErrors}):`, {
+          readyState: eventSource.readyState,
+          url: eventSource.url,
+          error: err
+        });
+        
+        // Only treat as fatal if connection is closed or we've had too many errors
         if (eventSource.readyState === EventSource.CLOSED) {
-          setError('Connection to debate stream lost');
+          console.error('SSE connection closed unexpectedly');
+          setError('Connection to debate stream lost. Please check the server logs for details.');
+          setStatus('error');
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+          }
+        } else if (eventSource.readyState === EventSource.CONNECTING) {
+          console.warn('SSE connection is still connecting...');
+          // Don't treat connecting state as an error
+        } else if (eventSource.readyState === EventSource.OPEN && errorCount >= maxErrors) {
+          // Connection is open but we're getting repeated errors - might be a data issue
+          console.error('Too many SSE errors while connection is open. Closing connection.');
+          setError('Multiple connection errors detected. The debate stream may be corrupted.');
+          setStatus('error');
+          if (eventSourceRef.current) {
+            eventSourceRef.current.close();
+            eventSourceRef.current = null;
+          }
         }
+        // If connection is OPEN and error count is low, just log and continue
+        // This handles transient network issues
       };
 
     } catch (err) {
@@ -469,8 +549,8 @@ export default function DebatePage() {
   // Streaming/Completed view - full width
   if (status === 'streaming' || status === 'completed') {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-6xl mx-auto">
+      <div className="container mx-auto px-4 py-8" style={{ backgroundColor: "var(--background)" }}>
+        <div className="max-w-6xl mx-auto space-y-6">
           {/* Header */}
           <div className="mb-6">
             <Link
@@ -483,197 +563,206 @@ export default function DebatePage() {
             <h1 className="text-h1 font-bold mb-2">{market.question}</h1>
           </div>
 
-          {/* Streaming Phase */}
-          {status === 'streaming' && (
-            <div
-              className="rounded-lg flex flex-col overflow-hidden"
-              style={{
-                backgroundColor: "var(--card-bg)",
-                border: "1px solid var(--card-border)",
-                maxHeight: "calc(100vh - 200px)",
-              }}
-            >
-              <div className="px-6 py-4 border-b flex-shrink-0" style={{ borderColor: "var(--card-border)" }}>
-                <div className="flex items-center justify-between">
-                  <h2 className="text-h2 font-semibold">Live Debate</h2>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                    <span className="text-body" style={{ color: "var(--foreground-secondary)" }}>
-                      Round {currentRound} of {rounds}
-                    </span>
-                  </div>
-                </div>
-              </div>
+          {/* Chat History - Single instance that persists across streaming and completed */}
+          <DebateChat
+            key={`debate-${debateId}`}
+            messages={messages}
+            rounds={rounds}
+            currentRound={status === 'completed' ? rounds : currentRound}
+            models={models.filter((m) => selectedModels.includes(m.id))}
+            isCompleted={status === 'completed'}
+            debateCompleteEventReceived={debateCompleteEventReceived}
+          />
 
-              <div
-                className="flex-1 overflow-y-auto"
-                style={{
-                  minHeight: 0,
-                  padding: "16px",
-                }}
-              >
-                <div className="space-y-4">
-                  {messages.length === 0 ? (
-                    <div className="text-center py-8">
-                      <LoadingSpinner size="md" />
-                      <p className="mt-4 text-body" style={{ color: "var(--foreground-secondary)" }}>
-                        Waiting for AI models to respond...
-                      </p>
-                    </div>
-                  ) : (
-                    messages.map((message, idx) => (
-                      <div
-                        key={idx}
-                        className="p-4 rounded"
-                        style={{
-                          backgroundColor: "var(--color-charcoal)",
-                          color: "var(--color-white)",
-                        }}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="font-semibold text-body">{message.model_name}</div>
-                          <div className="text-caption" style={{ color: "var(--foreground-secondary)" }}>
-                            Round {message.round} • {message.message_type}
-                          </div>
-                        </div>
-                        <p className="mb-3 text-body">{message.text}</p>
-                        {message.predictions && Object.keys(message.predictions).length > 0 && (
-                          <div className="flex gap-4 text-caption">
-                            {Object.entries(message.predictions).map(([outcome, percentage]) => (
-                              <div key={outcome}>
-                                <span style={{ color: "var(--foreground-secondary)" }}>{outcome}:</span>{" "}
-                                <span className="font-semibold">{percentage}%</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    ))
-                  )}
-                  <div ref={messagesEndRef} />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Completed Phase */}
+          {/* Results Section - Only show when completed */}
           {status === 'completed' && debateResults && (
-            <div className="space-y-6">
+            <>
+              {/* Results Section - Table Format */}
               <div
-                className="p-6 rounded-lg"
+                className="rounded-lg border"
                 style={{
-                  backgroundColor: "var(--card-bg)",
-                  border: "1px solid var(--card-border)",
+                  backgroundColor: "var(--card-bg-hover)",
+                  borderColor: "var(--card-border)",
                 }}
               >
-                <h2 className="text-h2 font-semibold mb-6">Debate Results</h2>
+                  {/* Table Header */}
+                  <div
+                    className="px-4 py-3 border-b"
+                    style={{
+                      borderColor: "var(--card-border)",
+                    }}
+                  >
+                    <h2 className="text-sm font-semibold" style={{ color: "var(--foreground)" }}>
+                      Debate Results
+                    </h2>
+                  </div>
 
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-3">Summary</h3>
-                  <p className="mb-4 text-body" style={{ color: "var(--foreground-secondary)" }}>
-                    {debateResults.summary.overall}
-                  </p>
-                  {debateResults.summary.consensus && (
-                    <div className="mb-4">
-                      <h4 className="font-semibold mb-2 text-body">Consensus</h4>
-                      <p className="text-body" style={{ color: "var(--foreground-secondary)" }}>
-                        {debateResults.summary.consensus}
+                  {/* Table Body */}
+                  <div className="divide-y" style={{ borderColor: "var(--card-border)" }}>
+                    {/* Summary Section */}
+                    <div className="px-4 py-3">
+                      <div className="text-xs font-medium mb-2" style={{ color: "var(--foreground)" }}>
+                        Summary
+                      </div>
+                      <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-secondary)" }}>
+                        {debateResults.summary.overall || "No summary available."}
                       </p>
+                      {debateResults.summary.consensus && (
+                        <div className="mt-3 pt-3 border-t" style={{ borderColor: "var(--card-border)" }}>
+                          <div className="text-xs font-medium mb-1" style={{ color: "var(--foreground)" }}>
+                            Consensus
+                          </div>
+                          <p className="text-xs leading-relaxed" style={{ color: "var(--foreground-secondary)" }}>
+                            {debateResults.summary.consensus}
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
 
-                <div className="mb-6">
-                  <h3 className="text-xl font-semibold mb-3">Final Predictions</h3>
-                  <div className="space-y-3">
-                    {Object.entries(debateResults.final_predictions).map(([modelName, data]) => (
-                      <div
-                        key={modelName}
-                        className="p-4 rounded"
-                        style={{
-                          backgroundColor: "var(--color-charcoal)",
-                          color: "var(--color-white)",
-                        }}
-                      >
-                        <div className="font-semibold mb-2 text-body">{modelName}</div>
-                        <div className="flex gap-4 mb-2 flex-wrap">
-                          {Object.entries(data.predictions).map(([outcome, percentage]) => (
-                            <div key={outcome} className="text-body">
-                              <span style={{ color: "var(--foreground-secondary)" }}>{outcome}:</span>{" "}
-                              <span className="font-semibold">{percentage}%</span>
+                    {/* Final Predictions Section */}
+                    {Object.keys(debateResults.final_predictions).length > 0 && (
+                      <div className="px-4 py-3">
+                        <div className="text-xs font-medium mb-3" style={{ color: "var(--foreground)" }}>
+                          Final Predictions
+                        </div>
+                        <div className="space-y-2">
+                          {Object.entries(debateResults.final_predictions).map(([modelName, data]) => (
+                            <div
+                              key={modelName}
+                              className="pb-2 last:pb-0"
+                            >
+                              <div className="text-xs font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
+                                {modelName}
+                              </div>
+                              <div className="flex gap-3 flex-wrap text-xs">
+                                {Object.entries(data.predictions).map(([outcome, percentage]) => (
+                                  <div key={outcome} style={{ color: "var(--foreground-secondary)" }}>
+                                    <span>{outcome}: </span>
+                                    <span className="font-semibold" style={{ color: "var(--foreground)" }}>
+                                      {percentage}%
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                              {data.change && (
+                                <div className="text-xs mt-1" style={{ color: "var(--foreground-secondary)" }}>
+                                  Change: {data.change}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
-                        {data.change && (
-                          <div className="text-caption" style={{ color: "var(--foreground-secondary)" }}>
-                            Change: {data.change}
-                          </div>
-                        )}
                       </div>
-                    ))}
+                    )}
+
+                    {/* Model Rationales Section */}
+                    {debateResults.summary.model_rationales && debateResults.summary.model_rationales.length > 0 && (
+                      <div className="px-4 py-3">
+                        <div className="text-xs font-medium mb-3" style={{ color: "var(--foreground)" }}>
+                          Model Rationales
+                        </div>
+                        <div className="space-y-3">
+                          {debateResults.summary.model_rationales.map((rationale, idx) => (
+                            <div
+                              key={idx}
+                              className="pb-3 last:pb-0 border-b last:border-b-0"
+                              style={{ borderColor: "var(--card-border)" }}
+                            >
+                              <div className="text-xs font-medium mb-1.5" style={{ color: "var(--foreground)" }}>
+                                {rationale.model}
+                              </div>
+                              <p className="text-xs leading-relaxed mb-2" style={{ color: "var(--foreground-secondary)" }}>
+                                {rationale.rationale}
+                              </p>
+                              {rationale.key_arguments && rationale.key_arguments.length > 0 && (
+                                <div className="text-xs">
+                                  <div className="font-medium mb-1" style={{ color: "var(--foreground)" }}>
+                                    Key Arguments:
+                                  </div>
+                                  <ul className="list-disc list-inside space-y-0.5" style={{ color: "var(--foreground-secondary)" }}>
+                                    {rationale.key_arguments.map((arg, argIdx) => (
+                                      <li key={argIdx}>{arg}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                {debateResults.summary.model_rationales && debateResults.summary.model_rationales.length > 0 && (
-                  <div>
-                    <h3 className="text-xl font-semibold mb-3">Model Rationales</h3>
-                    <div className="space-y-4">
-                      {debateResults.summary.model_rationales.map((rationale, idx) => (
-                        <div
-                          key={idx}
-                          className="p-4 rounded"
-                          style={{
-                            backgroundColor: "var(--color-charcoal)",
-                            color: "var(--color-white)",
-                          }}
-                        >
-                          <div className="font-semibold mb-2 text-body">{rationale.model}</div>
-                          <p className="mb-2 text-body">{rationale.rationale}</p>
-                          {rationale.key_arguments && rationale.key_arguments.length > 0 && (
-                            <div className="text-caption">
-                              <div className="font-semibold mb-1">Key Arguments:</div>
-                              <ul className="list-disc list-inside space-y-1">
-                                {rationale.key_arguments.map((arg, argIdx) => (
-                                  <li key={argIdx} style={{ color: "var(--foreground-secondary)" }}>{arg}</li>
-                                ))}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="flex gap-4">
+              {/* Action buttons - centered with icons */}
+              <div className="flex justify-center items-center gap-4 mt-6">
+                <Link
+                  href="/"
+                  className="px-4 py-2 rounded font-medium text-sm inline-flex items-center gap-2 transition-colors"
+                  style={{
+                    backgroundColor: "var(--color-charcoal)",
+                    color: "var(--color-white)",
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = "0.9";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = "1";
+                  }}
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M19 12H5M12 19l-7-7 7-7" />
+                  </svg>
+                  Back to Markets
+                </Link>
                 <button
                   onClick={() => {
                     setStatus('setup');
                     setMessages([]);
                     setDebateResults(null);
                     setDebateId(null);
+                    setCurrentRound(0);
                   }}
-                  className="px-6 py-2 rounded font-medium text-body"
+                  className="px-4 py-2 rounded font-medium text-sm inline-flex items-center gap-2 transition-colors"
                   style={{
                     backgroundColor: "var(--color-primary)",
                     color: "var(--color-white)",
                   }}
-                >
-                  Start New Debate
-                </button>
-                <Link
-                  href="/"
-                  className="px-6 py-2 rounded font-medium inline-block text-body"
-                  style={{
-                    backgroundColor: "var(--color-charcoal)",
-                    color: "var(--color-white)",
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--color-primary)";
                   }}
                 >
-                  Back to Markets
-                </Link>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
+                    <path d="M21 3v5h-5" />
+                    <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
+                    <path d="M3 21v-5h5" />
+                  </svg>
+                  Start New Debate
+                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
