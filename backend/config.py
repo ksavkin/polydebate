@@ -52,7 +52,18 @@ class Config:
     AUDIO_DIR = os.path.join(STORAGE_DIR, 'audio')
 
     # Database
-    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./storage/polydebate.db')
+    DB_PATH = os.path.join(STORAGE_DIR, 'polydebate.db')
+    # SQLite URL format: sqlite:/// for relative, sqlite:///C:/path for Windows absolute, sqlite:////path for Unix/Mac absolute
+    # Using pathlib for cross-platform compatibility
+    import sys
+    if os.getenv('DATABASE_URL'):
+        DATABASE_URL = os.getenv('DATABASE_URL')
+    else:
+        abs_db_path = os.path.abspath(DB_PATH)
+        # On Windows, convert backslashes to forward slashes and handle drive letters
+        if sys.platform == 'win32':
+            abs_db_path = abs_db_path.replace('\\', '/')
+        DATABASE_URL = f'sqlite:///{abs_db_path}'
 
     @classmethod
     def validate(cls):

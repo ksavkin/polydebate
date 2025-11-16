@@ -69,3 +69,5 @@ build/
 # backend
 /backend/.venv
 /backend/.env
+/backend/storage/polydebate.db
+/backend/storage/audio
