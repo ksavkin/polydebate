@@ -14,7 +14,7 @@ print("=" * 60)
 print("\n1. Getting market...")
 response = requests.get(f"{BASE_URL}/markets")
 markets = response.json().get('markets', [])
-market_id = markets[0].get('id')
+market_id = markets[1].get('id')
 print(f"   ✓ Using: {markets[0].get('question')}")
 
 # 2. Create debate
