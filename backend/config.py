@@ -22,7 +22,7 @@ class Config:
 
     # CORS
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-    CORS_ORIGINS = [FRONTEND_URL]
+    CORS_ORIGINS = [FRONTEND_URL, 'http://localhost:3003', 'http://localhost:3004']  # Support multiple ports
 
     # API Keys
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
@@ -115,6 +115,9 @@ class Config:
     ENABLE_SECURITY_LOG = os.getenv('ENABLE_SECURITY_LOG', 'false').lower() == 'true'
     SECURITY_LOG_FILE = os.getenv('SECURITY_LOG_FILE', os.path.join(LOGS_DIR, 'security.log'))
     LOG_REQUEST_ID = os.getenv('LOG_REQUEST_ID', 'true').lower() == 'true'
+
+    # Database
+    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./storage/polydebate.db')
 
     @classmethod
     def validate(cls):
