@@ -206,6 +206,94 @@ export interface DebatesResponse {
   limit: number;
 }
 
+// Auth Types
+export interface User {
+  id: string;
+  email: string;
+  name: string;
+  email_verified: boolean;
+  created_at: string;
+  updated_at: string;
+  last_login_at?: string;
+}
+
+export interface SignupRequestData {
+  email: string;
+  name: string;
+}
+
+export interface SignupRequestResponse {
+  success: boolean;
+  message: string;
+  expiry_minutes: number;
+}
+
+export interface SignupVerifyData {
+  email: string;
+  code: string;
+}
+
+export interface SignupVerifyResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    token: string;
+  };
+}
+
+export interface LoginRequestData {
+  email: string;
+}
+
+export interface LoginRequestResponse {
+  success: boolean;
+  message: string;
+  expiry_minutes: number;
+}
+
+export interface LoginVerifyData {
+  email: string;
+  code: string;
+}
+
+export interface LoginVerifyResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+    token: string;
+  };
+}
+
+export interface MeResponse {
+  success: boolean;
+  data: {
+    user: User;
+  };
+}
+
+export interface UpdateUserData {
+  name?: string;
+}
+
+export interface UpdateUserResponse {
+  success: boolean;
+  message: string;
+  data: {
+    user: User;
+  };
+}
+
+export interface ApiError {
+  error: {
+    code: string;
+    message: string;
+    details?: string;
+    remaining?: number;
+  };
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -213,14 +301,23 @@ class ApiClient {
     this.baseUrl = baseUrl;
   }
 
+  private getAuthToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('auth_token');
+    }
+    return null;
+  }
+
   private async fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`;
-    
+    const token = this.getAuthToken();
+
     try {
       const response = await fetch(url, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` }),
           ...options?.headers,
         },
       });
@@ -392,6 +489,70 @@ class ApiClient {
   // Audio URL helper
   getAudioUrl(messageId: string): string {
     return `${this.baseUrl}/api/audio/${messageId}.mp3`;
+  }
+
+  // Auth endpoints
+  async signupRequestCode(data: SignupRequestData): Promise<SignupRequestResponse> {
+    return this.fetchJson<SignupRequestResponse>('/api/auth/signup/request-code', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async signupVerifyCode(data: SignupVerifyData): Promise<SignupVerifyResponse> {
+    const response = await this.fetchJson<SignupVerifyResponse>('/api/auth/signup/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    // Store token in localStorage
+    if (response.success && response.data.token && typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', response.data.token);
+    }
+
+    return response;
+  }
+
+  async loginRequestCode(data: LoginRequestData): Promise<LoginRequestResponse> {
+    return this.fetchJson<LoginRequestResponse>('/api/auth/login/request-code', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async loginVerifyCode(data: LoginVerifyData): Promise<LoginVerifyResponse> {
+    const response = await this.fetchJson<LoginVerifyResponse>('/api/auth/login/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+
+    // Store token in localStorage
+    if (response.success && response.data.token && typeof window !== 'undefined') {
+      localStorage.setItem('auth_token', response.data.token);
+    }
+
+    return response;
+  }
+
+  async getCurrentUser(): Promise<MeResponse> {
+    return this.fetchJson<MeResponse>('/api/auth/me');
+  }
+
+  async updateCurrentUser(data: UpdateUserData): Promise<UpdateUserResponse> {
+    return this.fetchJson<UpdateUserResponse>('/api/auth/me', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  logout(): void {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('auth_token');
+    }
+  }
+
+  isAuthenticated(): boolean {
+    return this.getAuthToken() !== null;
   }
 }
 
