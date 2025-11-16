@@ -1,23 +1,24 @@
 ========================================
-Login to {app_name}
+Login to {app_name} 🔐
 ========================================
 
 Hi there,
 
-You requested to log in to your account. Please enter the verification code below:
+You requested to log in to your PolyDebate account. Please enter the verification code below:
 
-----------------------------------------
-Verification Code: {code}
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Verification Code: {code}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-This code expires in {expiry_minutes} minutes.
+⏱️  This code expires in {expiry_minutes} minutes.
 
-SECURITY NOTICE:
+⚠️  SECURITY NOTICE:
 If you didn't request this code, someone may be trying to access your account.
 Please ignore this email and consider updating your security settings.
 
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Need help? Contact us at {support_email}
+Visit us at {app_url}
 
 © 2024 {app_name}. All rights reserved.

@@ -1,23 +1,24 @@
 ========================================
-Welcome to {app_name}!
+Welcome to {app_name}! 🎉
 ========================================
 
 Hi {name},
 
-Thank you for signing up! To complete your registration, please enter the verification code below:
+Thank you for signing up for PolyDebate! To complete your registration, please enter the verification code below:
 
-----------------------------------------
-Verification Code: {code}
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Verification Code: {code}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-This code expires in {expiry_minutes} minutes.
+⏱️  This code expires in {expiry_minutes} minutes.
 
-SECURITY NOTICE:
+🔒 SECURITY NOTICE:
 If you didn't request this code, please ignore this email.
 Never share this code with anyone.
 
-----------------------------------------
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Need help? Contact us at {support_email}
+Visit us at {app_url}
 
 © 2024 {app_name}. All rights reserved.
