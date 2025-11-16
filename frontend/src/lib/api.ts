@@ -36,6 +36,8 @@ export interface Market {
   created_date?: string;
   image_url?: string;
   resolution_source?: string;
+  price_change_24h?: number; // Price change percentage in last 24 hours
+  sparkline?: number[]; // Historical price data for sparkline (24 data points)
 }
 
 export interface MarketsResponse {
@@ -231,7 +233,13 @@ class ApiClient {
       return await response.json();
     } catch (error) {
       if (error instanceof TypeError && error.message === 'Failed to fetch') {
-        throw new Error(`Cannot connect to backend API at ${this.baseUrl}. Make sure the backend server is running on port 5000.`);
+        try {
+          const url = new URL(this.baseUrl);
+          const port = url.port || (url.protocol === 'https:' ? '443' : '80');
+          throw new Error(`Cannot connect to backend API at ${this.baseUrl}. Make sure the backend server is running on port ${port}.`);
+        } catch {
+          throw new Error(`Cannot connect to backend API at ${this.baseUrl}. Make sure the backend server is running.`);
+        }
       }
       if (error instanceof Error) {
         throw error;
