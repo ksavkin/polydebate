@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+:root {
+  /* PolyDebate Brand Colors */
+  --color-primary: #2563eb; /* Primary Brand Blue - for links, buttons, primary actions */
+  --color-primary-hover: #1d4ed8;
+  --color-primary-shadow: rgba(37, 99, 235, 0.3);
+  --color-primary-shadow-hover: rgba(37, 99, 235, 0.4);
+  
+  --color-cyan-shadow: rgba(0, 194, 255, 0.3);
+  
+  --color-coral: #ff6f59; /* Coral/Answer Orange - for AI responses */
+  --color-coral-hover: #ff5a40;
+  --color-coral-shadow: rgba(255, 111, 89, 0.3);
+  
+  --color-green: #27ae60; /* Green - for positive indicators, Yes buttons */
+  --color-green-hover: #229954;
+  --color-green-shadow: rgba(39, 174, 96, 0.3);
+  
+  --color-red: #ef4444; /* Red - for negative indicators, No buttons */
+  --color-red-hover: #dc2626;
+  --color-red-shadow: rgba(239, 68, 68, 0.3);
+  
+  --color-sunny-yellow: #f9c74f; /* Sunny Yellow - for highlights and notifications */
+  --color-turquoise: #21808D; /* True Turquoise - core brand accent */
+  --color-turquoise-hover: #1a6670;
+  
+  --color-black: #000000;
+  --color-white: #ffffff;
+  
+  /* Neutrals - Light Theme */
+  --color-light-gray: #f2f2f2;
+  --color-soft-gray: #e8e8e8;
+  --color-medium-gray: #d0d0d0;
+  --color-dark-gray: #666666;
+  --color-charcoal: #1f1f1f;
+  
+  /* Light theme (default) */
+  --background: #ffffff;
+  --foreground: #000000;
+  --foreground-secondary: hsl(0, 0%, 40%); /* 40% lightness for secondary text */
+  --card-bg: #f2f2f2;
+  --card-bg-hover: #e8e8e8; /* Lighter shade of black/gray for hover */
+  --card-border: rgba(0, 0, 0, 0.1);
+  --nav-bg: #2b2b2b;
+  --nav-bg-extension: rgba(43, 43, 43, 0.95); /* Lighter shade for navbar extension */
+  --nav-text: #ffffff;
+  
+  /* Typography */
+  --font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-inter), 'Inter', monospace;
+  
+  /* Typography Scale - 14px base */
+  --text-base: 0.875rem; /* 14px */
+  --text-lg: 1rem; /* 16px */
+  --text-xl: 1.375rem; /* 22px */
+  --text-2xl: 1.75rem; /* 28px */
+  
+  /* Line Heights */
+  --leading-base: 1.5;
+  --leading-tight: 1.2;
+  --leading-relaxed: 1.75;
+  
+  /* Shadows - Light theme */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  --shadow-inset-dark: inset 0 1px 0 rgba(0, 0, 0, 0.05);
+  --shadow-nav: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.15);
+  --shadow-primary: 0 1px 2px var(--color-primary-shadow);
+  --shadow-primary-hover: 0 2px 4px var(--color-primary-shadow-hover);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-base);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Typography utilities */
+.text-h1 {
+  font-size: var(--text-2xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-h2 {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  line-height: var(--leading-tight);
+}
+
+.text-body {
+  font-size: var(--text-base);
+  font-weight: 400;
+  line-height: var(--leading-base);
+}
+
+.text-caption {
+  font-size: 0.8125rem; /* 13px */
+  font-weight: 400;
+  line-height: var(--leading-base);
+}
+
+/* Animation utilities for new cards */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}
