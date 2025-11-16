@@ -425,25 +425,52 @@ export function Navigation({
                 </svg>
               </button>
               {/* Bookmark Icon */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                style={{ color: "rgba(255, 255, 255, 0.8)" }}
-                aria-label="Bookmarks"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+              <Link href="/favorites">
+                <button
+                  className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
+                  style={
+                    pathname === '/favorites'
+                      ? {
+                          backgroundColor: "var(--color-primary)",
+                          color: "var(--color-white)",
+                          boxShadow: "var(--shadow-primary)",
+                        }
+                      : {
+                          backgroundColor: "transparent",
+                          color: "rgba(255, 255, 255, 0.8)",
+                        }
+                  }
+                  onMouseEnter={(e) => {
+                    if (pathname === '/favorites') {
+                      e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
+                    } else {
+                      e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    if (pathname === '/favorites') {
+                      e.currentTarget.style.backgroundColor = "var(--color-primary)";
+                    } else {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                    }
+                  }}
+                  aria-label="Bookmarks"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-              </button>
+                  <svg
+                    className="size-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+                    />
+                  </svg>
+                </button>
+              </Link>
             </div>
 
             {/* Right Side - Topic Chips */}
@@ -455,10 +482,22 @@ export function Navigation({
               }}
             >
               {displayTopics.map((topic) => {
-                const isActive = activeSubtopic === topic;
+                const isFavoritesPage = pathname.includes('/favorites');
+                const isActive = !isFavoritesPage && activeSubtopic === topic;
                 const handleClick = () => {
+                  // If on favorites page, always navigate to home page
+                  if (isFavoritesPage) {
+                    const params = new URLSearchParams();
+                    if (topic !== "All") {
+                      params.set("subtopic", topic);
+                    }
+                    const queryString = params.toString();
+                    router.push(`/${queryString ? `?${queryString}` : ""}`);
+                    return;
+                  }
+
+                  // Update URL with subtopic query param on current page
                   onSubtopicChange(topic);
-                  // Update URL with subtopic query param
                   const params = new URLSearchParams(searchParams?.toString() || "");
                   if (topic === "All") {
                     params.delete("subtopic");

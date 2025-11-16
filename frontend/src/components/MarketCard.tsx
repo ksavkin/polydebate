@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import BlurText from "@/components/BlurText";
 import { useState, useMemo, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useFavorites } from "@/contexts/FavoritesContext";
 
 interface Outcome {
   name: string;
@@ -56,6 +57,9 @@ export function MarketCard({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const cardRef = useRef<HTMLDivElement | null>(null);
 
+  const { isFavorited, toggleFavorite } = useFavorites();
+  const isFav = isFavorited(id);
+
   // Check if market has ended
   const isEnded = useMemo(() => {
     if (!end_date) return false;
@@ -80,9 +84,9 @@ export function MarketCard({
       });
   }, [outcomes]);
 
-  const handleSave = (e: React.MouseEvent) => {
+  const handleSave = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    // TODO: Implement save functionality
+    await toggleFavorite(id);
   };
 
   const handleShare = (e: React.MouseEvent) => {
@@ -875,8 +879,8 @@ export function MarketCard({
             <button
               onClick={handleSave}
               className="p-1.5 rounded transition-colors duration-100"
-              style={{ 
-                color: "var(--foreground-secondary)",
+              style={{
+                color: isFav ? "var(--color-primary)" : "var(--foreground-secondary)",
                 backgroundColor: "transparent",
               }}
               onMouseEnter={(e) => {
@@ -887,11 +891,11 @@ export function MarketCard({
                 e.stopPropagation();
                 e.currentTarget.style.backgroundColor = "transparent";
               }}
-              aria-label="Save market"
+              aria-label={isFav ? "Remove from favorites" : "Add to favorites"}
             >
               <svg
                 className="size-4"
-                fill="none"
+                fill={isFav ? "currentColor" : "none"}
                 stroke="currentColor"
                 viewBox="0 0 24 24"
                 style={{ pointerEvents: "none" }}
