@@ -21,11 +21,20 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
 
-    # Setup CORS
-    CORS(app, origins=config.CORS_ORIGINS, supports_credentials=True)
+    # Setup CORS - Allow all origins for development
+    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
 
     # Ensure storage directories exist
     config.ensure_directories()
+
+    # Initialize database
+    try:
+        from models import init_db
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.error(f"Database initialization failed: {e}")
+        # Continue anyway for development
 
     # Validate configuration
     try:
@@ -50,13 +59,11 @@ def register_routes(app):
 
     # Import blueprints
     from routes.markets import markets_bp
-    from routes.debate import debate_bp
-    from routes.models import models_bp
+    from routes.auth import auth_bp
 
     # Register blueprints
     app.register_blueprint(markets_bp, url_prefix='/api')
-    app.register_blueprint(debate_bp, url_prefix='/api')
-    app.register_blueprint(models_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
 
     @app.route('/api/health', methods=['GET'])
     def health():
@@ -80,7 +87,12 @@ def register_routes(app):
                 'markets': '/api/markets',
                 'categories': '/api/categories',
                 'models': '/api/models',
-                'debates': '/api/debates'
+                'debates': '/api/debates',
+                'auth': {
+                    'signup': '/api/auth/signup/request-code',
+                    'login': '/api/auth/login/request-code',
+                    'me': '/api/auth/me'
+                }
             }
         }), 200
 
