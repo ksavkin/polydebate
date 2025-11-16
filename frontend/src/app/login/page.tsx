@@ -1,15 +1,33 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
+import { Footer } from '@/components/Footer';
+import { Navigation } from '@/components/Navigation';
+import { useSearch } from '@/contexts/SearchContext';
 
 export default function LoginPage() {
   const router = useRouter();
   const { loginRequestCode, loginVerifyCode } = useAuth();
+  const searchParams = useSearchParams();
+  const { searchQuery, setSearchQuery } = useSearch();
+  const [activeCategory, setActiveCategory] = useState("trending");
+  const [activeSubtopic, setActiveSubtopic] = useState("All");
+  
+  // Get search query from URL params
+  const urlSearchQuery = searchParams.get("q") || "";
+  
+  // Sync context state with URL
+  useEffect(() => {
+    if (urlSearchQuery !== searchQuery) {
+      setSearchQuery(urlSearchQuery);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlSearchQuery]);
 
   const [step, setStep] = useState<'email' | 'code'>('email');
   const [email, setEmail] = useState('');
@@ -69,32 +87,49 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{ background: 'var(--background)' }}>
-      <div className="w-full max-w-md">
-        {/* Logo/Header */}
-        <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <div
-              className="w-10 h-10 rounded flex items-center justify-center"
-              style={{ backgroundColor: 'var(--color-primary)' }}
-            >
-              <span className="text-white font-bold text-lg">PD</span>
-            </div>
-            <span className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>PolyDebate</span>
-          </Link>
-          <h1 className="text-h1 mb-2" style={{ color: 'var(--foreground)' }}>Welcome Back</h1>
-          <p style={{ color: 'var(--foreground-secondary)' }}>Log in to continue</p>
-        </div>
+    <div className="h-screen overflow-hidden flex flex-col" style={{ background: 'var(--background)' }}>
+      {/* Navigation Header */}
+      <Navigation 
+        activeCategory={activeCategory}
+        activeSubtopic={activeSubtopic}
+        searchQuery={searchQuery}
+        onCategoryChange={(category) => {
+          setActiveCategory(category);
+          setActiveSubtopic("All");
+        }}
+        onSubtopicChange={(subtopic) => setActiveSubtopic(subtopic)}
+        onSearchChange={(query) => {
+          setSearchQuery(query);
+        }}
+      />
 
-        {/* Main Form Card */}
-        <div
-          className="p-8 rounded-lg"
-          style={{
-            background: 'var(--card-bg)',
-            border: '1px solid var(--card-border)',
-            boxShadow: 'var(--shadow-md)',
-          }}
-        >
+      {/* Main Content - Centered higher (top-middle) */}
+      <div className="flex-1 flex items-start justify-center px-4 pt-8 pb-8">
+        <div className="w-full max-w-md">
+          {/* Logo/Header */}
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-2 mb-6">
+              <div
+                className="w-10 h-10 rounded flex items-center justify-center"
+                style={{ backgroundColor: 'var(--color-primary)' }}
+              >
+                <span className="text-white font-bold text-lg">PD</span>
+              </div>
+              <span className="text-2xl font-bold" style={{ color: 'var(--foreground)' }}>PolyDebate</span>
+            </Link>
+            <h1 className="text-h1 mb-2" style={{ color: 'var(--foreground)' }}>Welcome Back</h1>
+            <p style={{ color: 'var(--foreground-secondary)' }}>Log in to continue</p>
+          </div>
+
+          {/* Main Form Card */}
+          <div
+            className="p-8 rounded-lg"
+            style={{
+              background: 'var(--card-bg)',
+              border: '1px solid var(--card-border)',
+              boxShadow: 'var(--shadow-md)',
+            }}
+          >
           {step === 'email' ? (
             <form onSubmit={handleRequestCode} className="space-y-6">
               <div>
@@ -263,7 +298,13 @@ export default function LoginPage() {
               </div>
             </form>
           )}
+          </div>
         </div>
+      </div>
+
+      {/* Footer - Always visible at bottom */}
+      <div className="mt-auto">
+        <Footer />
       </div>
     </div>
   );

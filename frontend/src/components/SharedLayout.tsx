@@ -21,6 +21,9 @@ export function SharedLayout({ children }: SharedLayoutProps) {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { searchQuery, setSearchQuery } = useSearch();
   
+  // Check if we're on login or signup pages
+  const isAuthPage = pathname === "/login" || pathname === "/signup";
+  
   // Get search query from URL params
   const urlSearchQuery = searchParams.get("q") || "";
   
@@ -51,8 +54,14 @@ export function SharedLayout({ children }: SharedLayoutProps) {
     }
   }, [searchParams]);
 
-  // Scroll detection for footer
+  // Scroll detection for footer (only for non-auth pages)
   useEffect(() => {
+    if (isAuthPage) {
+      // Always show footer on auth pages
+      setShowFooter(true);
+      return;
+    }
+    
     const handleScroll = () => {
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
       setShowFooter(scrollPosition > 200);
@@ -60,7 +69,7 @@ export function SharedLayout({ children }: SharedLayoutProps) {
 
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, []);
+  }, [isAuthPage]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -70,6 +79,11 @@ export function SharedLayout({ children }: SharedLayoutProps) {
       }
     };
   }, []);
+
+  // For auth pages, let the page component handle its own layout
+  if (isAuthPage) {
+    return <>{children}</>;
+  }
 
   return (
     <div 
