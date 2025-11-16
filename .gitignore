@@ -56,10 +56,15 @@ build/
 /frontend/*.tsbuildinfo
 /frontend/next-env.d.ts
 
-
+# frontend 
 /frontend/API_SPECIFICATION.md
 /frontend/implementation_plan.md
 /frontend/design.md
 .cursor/
 /frontend/node_modules
 /frontend/.cursor
+
+
+
+# backend
+/backend/.venv
