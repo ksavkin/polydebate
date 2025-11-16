@@ -34,6 +34,9 @@ class DebateDB(Base):
     final_summary = Column(JSON, nullable=True)
     final_predictions = Column(JSON, nullable=True)
 
+    # Summary generation lock
+    summary_generating = Column(Boolean, default=False)
+
     # Timestamps
     created_at = Column(String(30), nullable=False)
     completed_at = Column(String(30), nullable=True)

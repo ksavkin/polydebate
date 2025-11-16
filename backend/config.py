@@ -28,6 +28,7 @@ class Config:
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
     ELEVENLABS_API_KEY = os.getenv('ELEVENLABS_API_KEY')
     GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+    GEMINI_MODEL = os.getenv('GEMINI_MODEL', 'gemini-2.5-flash')
 
     # External APIs
     POLYMARKET_API_URL = 'https://gamma-api.polymarket.com'

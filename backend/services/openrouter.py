@@ -127,6 +127,7 @@ class OpenRouterService:
         model_id: str,
         market_question: str,
         market_description: str,
+        outcomes: List[Dict],
         context: List[Dict],
         round_num: int
     ) -> Dict:
@@ -137,12 +138,16 @@ class OpenRouterService:
             model_id: AI model ID
             market_question: Market question to debate
             market_description: Market description with details
+            outcomes: Market outcomes with current odds
             context: Previous messages in the debate
             round_num: Current round number
 
         Returns:
-            Dict with response content
+            Dict with response content and predictions
         """
+        # Format outcomes for prompt
+        outcomes_text = ", ".join([f"{o['name']} (current odds: {o['price']*100:.1f}%)" for o in outcomes])
+
         # Build system prompt
         system_prompt = f"""You are participating in a structured debate about a prediction market.
 
@@ -150,12 +155,21 @@ Market Question: {market_question}
 
 Market Description: {market_description}
 
+Possible Outcomes: {outcomes_text}
+
 Instructions:
 - This is round {round_num} of the debate
-- Provide your argument in EXACTLY ONE SENTENCE
-- Be concise and substantive
-- Make a clear point about the market outcome
-- Build upon or respond to previous arguments if applicable"""
+- You MUST respond with VALID JSON in this exact format:
+{{
+  "argument": "Your 1-2 sentence argument here",
+  "predictions": {{"Outcome1": percentage, "Outcome2": percentage}}
+}}
+
+- Your argument should be concise and substantive (1-2 sentences max)
+- Predictions must be integers that sum to 100
+- Base your predictions on your analysis and the current discussion
+- Build upon or respond to previous arguments if applicable
+- Return ONLY valid JSON, no additional text"""
 
         # Build messages array
         messages = [
@@ -190,7 +204,7 @@ Instructions:
                 "model": model_id,
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 100
+                "max_tokens": 300  # Increased for JSON response with predictions
             }
 
             async with session.post(
@@ -227,11 +241,60 @@ Instructions:
                     logger.warning(f"Empty content from {model_id}")
                     raise Exception("OpenRouter returned empty content")
 
-                return {
-                    'content': content,
-                    'model': model_id,
-                    'tokens': data.get('usage', {})
-                }
+                # Parse JSON response
+                import json
+                import re
+
+                try:
+                    # Try to extract JSON from response (may be wrapped in markdown)
+                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                    if json_match:
+                        json_text = json_match.group(1)
+                    else:
+                        # Try to find raw JSON
+                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                        if json_match:
+                            json_text = json_match.group(0)
+                        else:
+                            # No JSON found, treat as plain text
+                            logger.warning(f"No JSON found in response from {model_id}, using plain text")
+                            # Create default predictions (equal distribution)
+                            return {
+                                'content': content,
+                                'predictions': {},
+                                'model': model_id,
+                                'tokens': data.get('usage', {})
+                            }
+
+                    parsed = json.loads(json_text)
+
+                    # Extract argument and predictions
+                    argument = parsed.get('argument', content)
+                    predictions = parsed.get('predictions', {})
+
+                    # Validate predictions sum to 100
+                    if predictions and sum(predictions.values()) != 100:
+                        logger.warning(f"Predictions from {model_id} don't sum to 100: {predictions}")
+                        # Normalize to 100
+                        total = sum(predictions.values())
+                        if total > 0:
+                            predictions = {k: int(v * 100 / total) for k, v in predictions.items()}
+
+                    return {
+                        'content': argument,
+                        'predictions': predictions,
+                        'model': model_id,
+                        'tokens': data.get('usage', {})
+                    }
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
+                    return {
+                        'content': content,
+                        'predictions': {},
+                        'model': model_id,
+                        'tokens': data.get('usage', {})
+                    }
 
 
 # Global instance
