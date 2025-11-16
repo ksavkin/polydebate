@@ -71,6 +71,9 @@ venv/
 /backend/.env
 /backend/storage/polydebate.db
 /backend/storage/audio
+/backend/logs/
+*.log
+backend.log
 
 # IDE
 .vscode/
