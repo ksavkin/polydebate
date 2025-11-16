@@ -19,6 +19,7 @@ from database import init_db, create_all_tables
 from models.user import User
 from models.verification_code import VerificationCode
 from models.favorite import UserFavorite
+from models.db_models import DebateDB, DebateModelDB, DebateOutcomeDB, MessageDB, MessagePredictionDB
 
 # Setup logging
 logging.basicConfig(
