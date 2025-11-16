@@ -16,6 +16,9 @@ import logging
 from config import config
 from database import init_db, create_all_tables
 
+# Import all models to ensure they're registered with SQLAlchemy before table creation
+import models  # This imports all models including debate models
+
 # Setup logging
 logging.basicConfig(
     level=logging.DEBUG if config.DEBUG else logging.INFO,
