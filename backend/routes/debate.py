@@ -10,6 +10,24 @@ from config import config
 debate_bp = Blueprint('debate', __name__)
 
 
+@debate_bp.route('/debates', methods=['GET'])
+def list_debates():
+    """GET /api/debates - List all debates"""
+    try:
+        debates = debate_service.list_debates()
+        return jsonify({
+            'debates': debates,
+            'total': len(debates)
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'error': {
+                'code': 'internal_error',
+                'message': str(e)
+            }
+        }), 500
+
+
 @debate_bp.route('/debate/start', methods=['POST'])
 def start_debate():
     """POST /api/debate/start - Create and start a new debate"""

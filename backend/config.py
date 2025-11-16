@@ -22,7 +22,7 @@ class Config:
 
     # CORS
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-    CORS_ORIGINS = [FRONTEND_URL]
+    CORS_ORIGINS = [FRONTEND_URL, 'http://localhost:3003', 'http://localhost:3004']  # Support multiple ports
 
     # API Keys
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
@@ -50,6 +50,9 @@ class Config:
     STORAGE_DIR = os.path.join(BASE_DIR, 'storage')
     DEBATES_DIR = os.path.join(STORAGE_DIR, 'debates')
     AUDIO_DIR = os.path.join(STORAGE_DIR, 'audio')
+
+    # Database
+    DATABASE_URL = os.getenv('DATABASE_URL', 'sqlite:///./storage/polydebate.db')
 
     @classmethod
     def validate(cls):
