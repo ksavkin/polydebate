@@ -293,11 +293,68 @@ Instructions:
                 logger.warning(f"Empty content from {model_id}")
                 raise Exception("OpenRouter returned empty content")
 
-            return {
-                'content': content,
-                'model': model_id,
-                'tokens': data.get('usage', {})
-            }
+                # Parse JSON response
+                import json
+                import re
+
+                try:
+                    # Try to extract JSON from response (may be wrapped in markdown)
+                    json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
+                    if json_match:
+                        json_text = json_match.group(1)
+                    else:
+                        # Try to find raw JSON
+                        json_match = re.search(r'\{.*\}', content, re.DOTALL)
+                        if json_match:
+                            json_text = json_match.group(0)
+                        else:
+                            # No JSON found, treat as plain text
+                            logger.warning(f"No JSON found in response from {model_id}, using plain text")
+                            # Create default predictions (equal distribution)
+                            return {
+                                'content': content,
+                                'predictions': {},
+                                'model': model_id,
+                                'tokens': data.get('usage', {})
+                            }
+
+                    parsed = json.loads(json_text)
+
+                    # Extract argument and predictions
+                    argument = parsed.get('argument', content)
+                    predictions = parsed.get('predictions', {})
+
+                    # Validate predictions sum to 100
+                    if predictions and sum(predictions.values()) != 100:
+                        logger.warning(f"Predictions from {model_id} don't sum to 100: {predictions}")
+                        # Normalize to 100
+                        total = sum(predictions.values())
+                        if total > 0:
+                            # Use proper rounding to avoid truncation errors
+                            normalized = {k: round(v * 100 / total) for k, v in predictions.items()}
+                            # Adjust for rounding errors to ensure sum equals 100
+                            diff = 100 - sum(normalized.values())
+                            if diff != 0:
+                                # Add/subtract difference to the largest value
+                                max_key = max(normalized.items(), key=lambda x: x[1])[0]
+                                normalized[max_key] += diff
+                            predictions = normalized
+
+                    return {
+                        'content': argument,
+                        'predictions': predictions,
+                        'model': model_id,
+                        'tokens': data.get('usage', {})
+                    }
+
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
+                    return {
+                        'content': content,
+                        'predictions': {},
+                        'model': model_id,
+                        'tokens': data.get('usage', {})
+                    }
 
 
 # Global instance
