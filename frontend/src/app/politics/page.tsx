@@ -8,7 +8,7 @@ import { useSearch } from "@/contexts/SearchContext";
 
 const CARDS_PER_PAGE = 16;
 
-export default function Home() {
+export default function PoliticsPage() {
   const searchParams = useSearchParams();
   const activeSubtopic = searchParams.get("subtopic") || "All";
   const { searchQuery } = useSearch();
@@ -22,7 +22,7 @@ export default function Home() {
     loadMore,
     newCardIds,
   } = useMarkets({
-    category: "trending",
+    category: "politics",
     activeSubtopic,
     searchQuery,
     cardsPerPage: CARDS_PER_PAGE,
@@ -64,7 +64,7 @@ export default function Home() {
               lineHeight: "var(--leading-base)",
             }}
           >
-            Loading markets...
+            Loading politics markets...
           </div>
         </div>
       )}
@@ -82,3 +82,4 @@ export default function Home() {
     </>
   );
 }
+

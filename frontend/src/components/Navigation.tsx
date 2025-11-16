@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 
 const categories = [
@@ -21,6 +22,8 @@ const categories = [
   "World",
   "Economy",
   "Elections",
+  "Mentions",
+  "More",
 ];
 
 // Topic chips - these would typically come from the active category
@@ -72,8 +75,17 @@ export function Navigation({
   onSearchChange,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
   const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
+
+  // Helper function to get route for category
+  const getCategoryRoute = (category: string) => {
+    const normalized = category.toLowerCase();
+    return normalized === "trending" ? "/" : `/${normalized}`;
+  };
 
   return (
     <nav 
@@ -228,12 +240,14 @@ export function Navigation({
             }}
           >
             {categories.map((category) => {
-              const isActive = activeCategory === category.toLowerCase();
+              const categoryLower = category.toLowerCase();
+              const route = getCategoryRoute(categoryLower);
+              const isActive = activeCategory === categoryLower;
               const isTrending = category === "Trending";
               return (
-                <button
+                <Link
                   key={category}
-                  onClick={() => onCategoryChange(category.toLowerCase())}
+                  href={route}
                   className={cn(
                     "px-4 py-2 text-caption font-medium whitespace-nowrap",
                     "transition-colors duration-150",
@@ -244,6 +258,7 @@ export function Navigation({
                     color: isActive ? "var(--nav-text)" : "rgba(255, 255, 255, 0.7)",
                     lineHeight: "var(--leading-base)",
                     borderColor: isActive ? "var(--color-primary)" : "transparent",
+                    textDecoration: "none",
                   }}
                   onMouseEnter={(e) => {
                     if (!isActive) {
@@ -272,7 +287,7 @@ export function Navigation({
                     </svg>
                   )}
                   {category}
-                </button>
+                </Link>
               );
             })}
           </div>
@@ -406,10 +421,22 @@ export function Navigation({
             >
               {displayTopics.map((topic) => {
                 const isActive = activeSubtopic === topic;
+                const handleClick = () => {
+                  onSubtopicChange(topic);
+                  // Update URL with subtopic query param
+                  const params = new URLSearchParams(searchParams?.toString() || "");
+                  if (topic === "All") {
+                    params.delete("subtopic");
+                  } else {
+                    params.set("subtopic", topic);
+                  }
+                  const queryString = params.toString();
+                  router.push(`${pathname}${queryString ? `?${queryString}` : ""}`);
+                };
                 return (
                   <button
                     key={topic}
-                    onClick={() => onSubtopicChange(topic)}
+                    onClick={handleClick}
                     className={cn(
                       "h-7 px-3 text-xs font-medium whitespace-nowrap rounded-full",
                       "transition-all duration-150"

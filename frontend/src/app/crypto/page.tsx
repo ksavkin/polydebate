@@ -8,7 +8,7 @@ import { useSearch } from "@/contexts/SearchContext";
 
 const CARDS_PER_PAGE = 16;
 
-export default function Home() {
+export default function CryptoPage() {
   const searchParams = useSearchParams();
   const activeSubtopic = searchParams.get("subtopic") || "All";
   const { searchQuery } = useSearch();
@@ -22,7 +22,7 @@ export default function Home() {
     loadMore,
     newCardIds,
   } = useMarkets({
-    category: "trending",
+    category: "crypto",
     activeSubtopic,
     searchQuery,
     cardsPerPage: CARDS_PER_PAGE,
@@ -30,7 +30,6 @@ export default function Home() {
 
   return (
     <>
-      {/* Error State */}
       {error && (
         <div className="text-center py-12">
           <p 
@@ -53,7 +52,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* Initial Loading State */}
       {isInitialLoading && !error && (
         <div className="flex flex-col items-center justify-center py-12 gap-4">
           <LoadingSpinner size="lg" />
@@ -64,12 +62,11 @@ export default function Home() {
               lineHeight: "var(--leading-base)",
             }}
           >
-            Loading markets...
+            Loading crypto markets...
           </div>
         </div>
       )}
 
-      {/* Markets Grid */}
       {!isInitialLoading && !error && (
         <MarketsGrid
           markets={markets}
@@ -82,3 +79,4 @@ export default function Home() {
     </>
   );
 }
+
