@@ -192,6 +192,10 @@ export default function DebatePage() {
     switch (eventType) {
       case 'message':
         setMessages(prev => [...prev, data as DebateMessage]);
+        // Update current round from the message data
+        if (data.round) {
+          setCurrentRound(data.round);
+        }
         break;
       case 'round_complete':
         setCurrentRound(data.next_round || data.round + 1);
