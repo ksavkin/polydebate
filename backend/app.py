@@ -80,6 +80,7 @@ def register_routes(app):
     from routes.debate import debate_bp
     from routes.models import models_bp
     from routes.favorites import favorites_bp
+    from routes.profile import profile_bp
 
     # Register blueprints
     app.register_blueprint(markets_bp, url_prefix='/api')
@@ -87,6 +88,7 @@ def register_routes(app):
     app.register_blueprint(debate_bp, url_prefix='/api')
     app.register_blueprint(models_bp, url_prefix='/api')
     app.register_blueprint(favorites_bp, url_prefix='/api')
+    app.register_blueprint(profile_bp, url_prefix='/api/auth')
 
     @app.route('/api/health', methods=['GET'])
     def health():
@@ -145,6 +147,45 @@ def register_routes(app):
             }), 404
 
         return send_from_directory(config.AUDIO_DIR, filename, mimetype='audio/mpeg')
+
+    @app.route('/uploads/avatars/<filename>', methods=['GET'])
+    def serve_avatar(filename):
+        """Serve avatar images"""
+        from flask import send_from_directory
+        import os
+
+        # Security: validate filename
+        allowed_extensions = {'.jpg', '.jpeg', '.png', '.gif'}
+        file_ext = os.path.splitext(filename)[1].lower()
+
+        if not file_ext in allowed_extensions or '..' in filename or '/' in filename:
+            return jsonify({
+                'error': {
+                    'code': 'invalid_filename',
+                    'message': 'Invalid avatar filename'
+                }
+            }), 400
+
+        avatar_path = os.path.join(config.AVATAR_DIR, filename)
+
+        if not os.path.exists(avatar_path):
+            return jsonify({
+                'error': {
+                    'code': 'avatar_not_found',
+                    'message': f'Avatar file {filename} not found'
+                }
+            }), 404
+
+        # Determine MIME type
+        mime_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif'
+        }
+        mimetype = mime_types.get(file_ext, 'application/octet-stream')
+
+        return send_from_directory(config.AVATAR_DIR, filename, mimetype=mimetype)
 
 
 def register_error_handlers(app):

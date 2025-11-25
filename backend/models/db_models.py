@@ -14,14 +14,19 @@ class DebateDB(Base):
     # Primary key
     debate_id = Column(String(36), primary_key=True)
 
+    # User ownership
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=True, index=True)
+
     # Status and metadata
     status = Column(String(20), nullable=False, index=True)  # 'initialized', 'in_progress', 'paused', 'completed', 'stopped'
     paused = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False, index=True)
 
     # Market information
     market_id = Column(String(100), nullable=False, index=True)
     market_question = Column(Text, nullable=False)
     market_description = Column(Text)
+    market_category = Column(String(100), nullable=True, index=True)
 
     # Polymarket odds (stored as JSON)
     polymarket_odds = Column(JSON)
@@ -29,6 +34,10 @@ class DebateDB(Base):
     # Debate configuration
     rounds = Column(Integer, nullable=False)
     current_round = Column(Integer, default=0)
+
+    # Token usage tracking
+    total_tokens_used = Column(Integer, default=0)
+    tokens_by_model = Column(JSON, nullable=True)
 
     # Final results (stored as JSON)
     final_summary = Column(JSON, nullable=True)
@@ -42,6 +51,7 @@ class DebateDB(Base):
     completed_at = Column(String(30), nullable=True)
 
     # Relationships
+    user = relationship("User", back_populates="debates", foreign_keys=[user_id])
     models = relationship("DebateModelDB", back_populates="debate", cascade="all, delete-orphan")
     outcomes = relationship("DebateOutcomeDB", back_populates="debate", cascade="all, delete-orphan")
     messages = relationship("MessageDB", back_populates="debate", cascade="all, delete-orphan")

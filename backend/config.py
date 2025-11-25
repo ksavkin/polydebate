@@ -57,6 +57,7 @@ class Config:
     STORAGE_DIR = os.path.join(BASE_DIR, 'storage')
     DEBATES_DIR = os.path.join(STORAGE_DIR, 'debates')
     AUDIO_DIR = os.path.join(STORAGE_DIR, 'audio')
+    AVATAR_DIR = os.path.join(STORAGE_DIR, 'avatars')
     LOGS_DIR = os.path.join(BASE_DIR, 'logs')
 
     # ========================================
@@ -186,6 +187,7 @@ class Config:
         """Ensure storage directories exist"""
         os.makedirs(cls.DEBATES_DIR, exist_ok=True)
         os.makedirs(cls.AUDIO_DIR, exist_ok=True)
+        os.makedirs(cls.AVATAR_DIR, exist_ok=True)
         os.makedirs(cls.LOGS_DIR, exist_ok=True)
         if cls.USE_TEMPLATE_FILES:
             os.makedirs(cls.TEMPLATE_DIRECTORY, exist_ok=True)

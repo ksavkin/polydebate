@@ -46,6 +46,7 @@ export function DebateChat({
   const hasCompletedRef = useRef(false);
   const messagesRef = useRef(messages);
   const initializedRef = useRef(false);
+  const isMountedRef = useRef(true);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const previousPredictionsRef = useRef<Map<string, Record<string, number>>>(new Map());
@@ -99,11 +100,27 @@ export function DebateChat({
     });
   }, [visibleMessageIds.size]);
 
+  // Cleanup audio on unmount
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+
+      // Immediately stop any playing audio
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.removeEventListener("ended", () => {});
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current.src = ''; // Clear the source to stop loading
+          audioRef.current.load(); // Force reload to clear buffered data
+          // Remove all event listeners
+          audioRef.current.onended = null;
+          audioRef.current.onerror = null;
+        } catch (err) {
+          // Ignore errors during cleanup
+          console.log('Audio cleanup error (expected):', err);
+        }
         audioRef.current = null;
       }
       setPlayingMessageId(null);
@@ -215,15 +232,30 @@ export function DebateChat({
             : `${API_BASE_URL}${msg.audio_url}`;
           
           console.log('Loading audio for message:', messageId, 'URL:', audioUrl);
+
+          // Check if component is still mounted before creating audio
+          if (!isMountedRef.current) {
+            console.log('Component unmounted, skipping audio creation');
+            return;
+          }
+
           const audio = new Audio(audioUrl);
           audioRef.current = audio;
-          
+
           // Add error handler for audio loading
           audio.addEventListener('error', (e) => {
-            console.error('Audio loading error:', e, audioUrl);
+            // Only log errors if component is still mounted
+            if (isMountedRef.current) {
+              console.error('Audio loading error:', e, audioUrl);
+            }
           });
 
           const handleEnded = () => {
+            // Check if component is still mounted before updating state
+            if (!isMountedRef.current) {
+              return;
+            }
+
             setPlayedIds((prev) => new Set([...prev, messageId]));
             setPlayingMessageId(null);
             if (audioRef.current === audio) {
@@ -267,15 +299,25 @@ export function DebateChat({
 
           // Add a small delay before playing to further prevent rate limiting
           setTimeout(() => {
+            // Check if component is still mounted before playing
+            if (!isMountedRef.current) {
+              console.log('Component unmounted, skipping audio playback');
+              return;
+            }
+
             console.log('Attempting to play audio for message:', messageId);
             audio.play().then(() => {
-              console.log('Audio playing successfully for message:', messageId);
+              if (isMountedRef.current) {
+                console.log('Audio playing successfully for message:', messageId);
+              }
             }).catch((err) => {
-              // Log all errors for debugging
-              console.error("Error playing audio:", err, 'URL:', audioUrl);
-              // Silently handle autoplay errors (browser restrictions)
-              if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
-                console.error("Non-autoplay error playing audio:", err);
+              // Only log errors if component is still mounted
+              if (isMountedRef.current) {
+                console.error("Error playing audio:", err, 'URL:', audioUrl);
+                // Silently handle autoplay errors (browser restrictions)
+                if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
+                  console.error("Non-autoplay error playing audio:", err);
+                }
               }
               // If audio fails, wait a bit before marking as played to maintain sequence
               // This prevents messages from appearing too quickly if multiple audio files fail
