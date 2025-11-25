@@ -17,7 +17,7 @@ class Message:
     model_name: str
     message_type: str  # 'initial' | 'debate' | 'final'
     text: str
-    predictions: Dict[str, int]  # outcome -> percentage (0-100)
+    predictions: Dict[str, float]  # outcome -> percentage (0-100, can include decimals)
     audio_url: Optional[str]
     audio_duration: Optional[float]
     timestamp: str
@@ -30,7 +30,7 @@ class Message:
         model_name: str,
         message_type: str,
         text: str,
-        predictions: Dict[str, int]
+        predictions: Dict[str, float]
     ) -> 'Message':
         """Create a new message"""
         return Message(

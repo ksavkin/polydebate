@@ -11,6 +11,7 @@ interface Outcome {
   slug?: string;
   price: number;
   shares?: string;
+  price_change_24h?: number;
 }
 
 interface MarketCardProps {
@@ -69,19 +70,35 @@ export function MarketCard({
     return now > endDate;
   }, [end_date]);
 
-  // Filter out outcomes with 0 shares and sort by volume (shares) from highest to lowest
+  // Filter out placeholder outcomes and sort by price (chance) from highest to lowest
   const sortedOutcomes = useMemo(() => {
     return [...outcomes]
       .filter((outcome) => {
-        // Filter out outcomes with 0 shares, empty shares, or undefined shares
-        if (!outcome.shares) return false;
-        const sharesNum = parseFloat(outcome.shares);
-        return !isNaN(sharesNum) && sharesNum > 0;
+        // Filter out placeholder outcomes
+        const name = outcome.name?.toLowerCase() || '';
+        if (name.includes('placeholder')) {
+          return false;
+        }
+        // Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+        if (name === 'other' && outcome.price === 0.5 && (!outcome.shares || outcome.shares === '0')) {
+          return false;
+        }
+        // Filter out outcomes with price_change_24h: 0.0 and shares: "0"
+        if (outcome.price_change_24h !== undefined && outcome.price_change_24h === 0.0 && (!outcome.shares || outcome.shares === '0')) {
+          return false;
+        }
+        // Filter out outcomes where shares is 0 or empty
+        const shares = outcome.shares;
+        if (!shares || shares === '0' || parseFloat(String(shares)) === 0) {
+          return false;
+        }
+        return true;
       })
       .sort((a, b) => {
-        const sharesA = parseFloat(a.shares || "0");
-        const sharesB = parseFloat(b.shares || "0");
-        return sharesB - sharesA; // Sort by volume (shares) from highest to lowest
+        // Sort by price (chance) from highest to lowest
+        const priceA = typeof a.price === 'number' ? a.price : parseFloat(String(a.price)) || 0;
+        const priceB = typeof b.price === 'number' ? b.price : parseFloat(String(b.price)) || 0;
+        return priceB - priceA;
       });
   }, [outcomes]);
 
