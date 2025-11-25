@@ -183,27 +183,64 @@ class OpenRouterService:
 - Synthesize all arguments from the debate to make your most confident prediction
 - Your predictions should represent your final stance after considering all perspectives"""
 
+        # Format outcomes as a numbered list for clarity
+        outcomes_list = "\n".join([f"{i+1}. {o['name']} (current odds: {o['price']*100:.1f}%)" for i, o in enumerate(outcomes)])
+        
+        # Create a list of outcome names for reference (exact names to use)
+        outcome_names = [o['name'] for o in outcomes]
+        outcome_names_json = ", ".join([f'"{name}"' for name in outcome_names])
+        
+        # Debug: Log what's being sent in the prompt
+        logger.info(f"Prompt for {model_id} - Number of outcomes: {len(outcomes)}, Outcome names: {outcome_names}")
+        logger.info(f"Outcomes list in prompt:\n{outcomes_list}")
+        
+        # Create example predictions JSON with actual outcome names
+        example_predictions = "{" + ", ".join([f'"{name}": 0.00' for name in outcome_names[:3]]) + (f', ... (include ALL {len(outcomes)} outcomes)' if len(outcomes) > 3 else '') + "}"
+        
         system_prompt = f"""You are participating in a structured debate about a prediction market.
 
 Market Question: {market_question}
 
 Market Description: {market_description}
 
-Possible Outcomes: {outcomes_text}
+CRITICAL: You MUST provide predictions for ALL outcomes listed below. Use the EXACT outcome names as shown - do NOT create new names or use generic names like "Artist A", "Outcome 1", "An emerging artist", etc.
+
+Required Outcomes (you MUST predict for ALL {len(outcomes)} of these):
+{outcomes_list}
+
+EXACT outcome names to use in your predictions JSON (COPY THESE EXACTLY - DO NOT MODIFY):
+{outcome_names_json}
+
+WARNING: If you create new outcome names or use generic names instead of the exact names above, your response will be invalid. You MUST use the exact names from the list above.
 
 Instructions:
 - This is round {round_num} of the debate{final_round_instructions}
 - You MUST respond with VALID JSON in this exact format:
 {{
   "argument": "Your 1-2 sentence argument here",
-  "predictions": {{"Outcome1": percentage, "Outcome2": percentage}}
+  "predictions": {example_predictions}
 }}
 
-- Your argument should be concise and substantive (1-2 sentences max)
-- Predictions must be integers that sum to 100
-- Base your predictions on your analysis and the current discussion
-- Build upon or respond to previous arguments if applicable
-- Return ONLY valid JSON, no additional text"""
+CRITICAL REQUIREMENTS - READ CAREFULLY:
+1. Your argument should be concise and substantive (1-2 sentences max)
+2. You MUST provide predictions for ALL {len(outcomes)} outcomes listed above - NO EXCEPTIONS
+3. You MUST use the EXACT outcome names as shown above - copy them exactly, character by character
+4. DO NOT use generic names like "Artist A", "Outcome 1", "Option A", etc. - use the actual names from the list
+5. DO NOT add new outcomes that are not in the list above
+6. DO NOT remove or skip any outcomes from the list above
+7. Predictions must be numbers (can include decimals up to 2 decimal places) that sum to exactly 100.00
+8. Use specific predictions like 33.21, 55.42, or 10.20 (up to 2 decimal places, no % sign in JSON)
+9. All predictions must sum to exactly 100.00 (account for rounding)
+10. Base your predictions on your analysis and the current discussion
+11. Build upon or respond to previous arguments and predictions if applicable - you can agree, disagree, or adjust based on what others have said
+12. If previous messages show predictions from other models, you can reference them and explain why you agree or disagree with their assessment
+13. Return ONLY valid JSON, no additional text before or after
+
+Example of correct format (using actual outcome names):
+{{
+  "argument": "Based on current trends, I predict...",
+  "predictions": {{"{outcome_names[0] if outcome_names else 'Outcome1'}": 25.5, "{outcome_names[1] if len(outcome_names) > 1 else 'Outcome2'}": 30.25, ... (include ALL {len(outcomes)} outcomes)}}
+}}"""
 
         # Build messages array
         messages = [
@@ -211,19 +248,32 @@ Instructions:
         ]
 
         # Add context from previous messages
+        # Include outcome list reminder in EVERY context message to reinforce it
         for msg in context:
+            outcome_reminder_in_context = f"\n\n[CRITICAL REMINDER: You MUST use these EXACT outcome names in your predictions JSON - copy them exactly: {outcome_names_json}. DO NOT create new names or use generic names like 'Artist A', 'Outcome 1', etc.]"
+            
+            # Include predictions if available
+            predictions_text = ""
+            if msg.get('predictions'):
+                predictions = msg['predictions']
+                # Format predictions nicely: "Outcome1: 25.5%, Outcome2: 30.25%, ..."
+                predictions_list = [f"{name}: {value}%" for name, value in sorted(predictions.items(), key=lambda x: x[1], reverse=True)]
+                predictions_text = f"\n\nPredictions: {', '.join(predictions_list)}"
+            
             messages.append({
                 "role": "assistant",
-                "content": f"[{msg['model_name']}]: {msg['text']}"
+                "content": f"[{msg['model_name']}]: {msg['text']}{predictions_text}{outcome_reminder_in_context}"
             })
 
-        # Add user prompt for this round
+        # Add user prompt for this round - include outcome list as reminder
+        outcomes_reminder = f"\n\nRemember: You must provide predictions for ALL {len(outcomes)} outcomes using these EXACT names: {outcome_names_json}"
+        
         if round_num == 1 and not context:
-            user_prompt = "Provide your opening argument on this prediction market."
+            user_prompt = f"Provide your opening argument on this prediction market.{outcomes_reminder}"
         elif is_final_round:
-            user_prompt = "This is the final round. After considering all the arguments presented in this debate, provide your final prediction and conclusive statement on the market outcome."
+            user_prompt = f"This is the final round. After considering all the arguments and predictions presented in this debate, provide your final prediction and conclusive statement on the market outcome.{outcomes_reminder}"
         else:
-            user_prompt = f"Provide your argument for round {round_num}, considering the previous discussion."
+            user_prompt = f"Provide your argument for round {round_num}, considering the previous discussion. You can respond to other models' arguments and predictions, explaining why you agree or disagree with their assessments.{outcomes_reminder}"
 
         messages.append({"role": "user", "content": user_prompt})
 
@@ -236,11 +286,26 @@ Instructions:
                 "Content-Type": "application/json"
             }
 
+            # Calculate max_tokens based on number of outcomes
+            # Formula: base (argument + JSON overhead) + (outcomes * tokens per outcome)
+            # Base: ~200 tokens for argument (1-2 sentences) + JSON structure (~50 tokens)
+            # Per outcome: ~20 tokens per prediction entry ("name": 12.34,)
+            # Add 50% buffer for safety
+            base_tokens = 250
+            tokens_per_outcome = 25
+            calculated_max = base_tokens + (len(outcomes) * tokens_per_outcome)
+            # Add 50% buffer and round up to nearest 100
+            max_tokens = int((calculated_max * 1.5) // 100 * 100 + 100)
+            # Set minimum of 1000 and maximum of 4000 (to avoid hitting model limits)
+            max_tokens = max(1000, min(max_tokens, 4000))
+            
+            logger.info(f"Setting max_tokens to {max_tokens} for {len(outcomes)} outcomes (calculated: {calculated_max})")
+            
             payload = {
                 "model": model_id,
                 "messages": messages,
                 "temperature": 0.7,
-                "max_tokens": 300  # Increased for JSON response with predictions
+                "max_tokens": max_tokens
             }
 
             # Retry logic for rate limit errors

@@ -157,7 +157,11 @@ class Debate:
                     outcome_db = DebateOutcomeDB(
                         debate_id=self.debate_id,
                         name=outcome['name'],
-                        price=outcome['price']
+                        price=outcome['price'],
+                        shares=outcome.get('shares'),
+                        volume=outcome.get('volume'),
+                        price_change_24h=outcome.get('price_change_24h'),
+                        image_url=outcome.get('image_url')
                     )
                     db.add(outcome_db)
 
@@ -221,10 +225,22 @@ class Debate:
 
             # Load outcomes
             outcomes_db = db.query(DebateOutcomeDB).filter_by(debate_id=debate_id).all()
-            outcomes = [
-                {'name': o.name, 'price': o.price}
-                for o in outcomes_db
-            ]
+            outcomes = []
+            for o in outcomes_db:
+                outcome = {
+                    'name': o.name,
+                    'price': o.price
+                }
+                # Add optional fields if they exist
+                if o.shares is not None:
+                    outcome['shares'] = o.shares
+                if o.volume is not None:
+                    outcome['volume'] = o.volume
+                if o.price_change_24h is not None:
+                    outcome['price_change_24h'] = o.price_change_24h
+                if o.image_url is not None:
+                    outcome['image_url'] = o.image_url
+                outcomes.append(outcome)
 
             # Load messages
             messages_db = db.query(MessageDB).filter_by(debate_id=debate_id).order_by(

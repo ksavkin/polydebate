@@ -8,6 +8,8 @@ export interface MarketOutcome {
   slug?: string;
   price: number;
   shares?: string;
+  price_change_24h?: number; // 24h price change percentage for this outcome
+  image_url?: string; // Image URL for the outcome
 }
 
 export interface Tag {
@@ -420,7 +422,15 @@ class ApiClient {
   }
 
   async getMarket(marketId: string): Promise<Market> {
-    return this.fetchJson<Market>(`/api/markets/${marketId}`);
+    // Add cache-busting parameter to ensure fresh data
+    const url = `/api/markets/${marketId}?t=${Date.now()}`;
+    console.log('Fetching market from:', url);
+    const result = await this.fetchJson<Market>(url);
+    console.log('Raw API response for market:', {
+      id: result.id,
+      badBunny: result.outcomes.find(o => o.name === 'Bad Bunny')
+    });
+    return result;
   }
 
   async getCategories(): Promise<CategoriesResponse> {

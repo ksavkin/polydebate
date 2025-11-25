@@ -24,6 +24,7 @@ const categories = [
   "Economy",
   "Elections",
   "Mentions",
+  "Ended",
   "More",
 ];
 
@@ -56,6 +57,7 @@ const categorySubtopics: Record<string, string[]> = {
   world: ["All", "Europe", "Asia", "Americas", "Africa", "Oceania"],
   economy: ["All", "GDP", "Employment", "Housing", "Trade", "Policy"],
   elections: ["All", "US 2024", "US 2028", "International", "State", "Local"],
+  ended: ["All", "Today", "This Week", "This Month", "Older"],
 };
 
 interface NavigationProps {

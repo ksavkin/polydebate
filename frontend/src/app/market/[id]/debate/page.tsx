@@ -52,13 +52,52 @@ export default function DebatePage() {
           apiClient.getMarket(marketId),
           apiClient.getModels(),
         ]);
+        // Debug: Log market data to verify prices
+        console.log('Market data received from API:', {
+          id: marketData.id,
+          question: marketData.question,
+          outcomes: marketData.outcomes.map(o => ({
+            name: o.name,
+            price: o.price,
+            priceType: typeof o.price
+          }))
+        });
+        
+        // Debug: Check Bad Bunny specifically and log full API response
+        const badBunny = marketData.outcomes.find(o => o.name === 'Bad Bunny');
+        if (badBunny) {
+          console.log('Bad Bunny in market data:', {
+            name: badBunny.name,
+            price: badBunny.price,
+            priceType: typeof badBunny.price,
+            priceTimes100: badBunny.price * 100,
+            fullOutcome: badBunny
+          });
+        }
+        
+        // Debug: Log the raw API response URL
+        console.log('API call URL:', `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}/api/markets/${marketId}`);
+        
         setMarket(marketData);
         setModels(modelsData.models.filter(m => m.supported));
         
-        // Set default selected outcome to the most probable one
+        // Set default selected outcome to the most probable one (excluding placeholders)
         if (marketData.outcomes && marketData.outcomes.length > 0) {
-          const sortedOutcomes = [...marketData.outcomes].sort((a, b) => b.price - a.price);
-          setSelectedOutcome(sortedOutcomes[0].name || sortedOutcomes[0].slug || null);
+          const filteredOutcomes = marketData.outcomes.filter(o => {
+            const name = o.name?.toLowerCase() || '';
+            if (name.includes('placeholder')) {
+              return false;
+            }
+            // Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+            if (name === 'other' && o.price === 0.5 && (!o.shares || o.shares === '0')) {
+              return false;
+            }
+            return true;
+          });
+          if (filteredOutcomes.length > 0) {
+            const sortedOutcomes = [...filteredOutcomes].sort((a, b) => b.price - a.price);
+            setSelectedOutcome(sortedOutcomes[0].name || sortedOutcomes[0].slug || null);
+          }
         }
         
         setError(null);
@@ -337,7 +376,19 @@ export default function DebatePage() {
   // Get selected outcome data
   const selectedOutcomeData = useMemo(() => {
     if (!market || !selectedOutcome) return null;
-    return market.outcomes.find(
+    // Filter out placeholders when finding selected outcome
+    const filteredOutcomes = market.outcomes.filter(o => {
+      const name = o.name?.toLowerCase() || '';
+      if (name.includes('placeholder')) {
+        return false;
+      }
+      // Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+      if (name === 'other' && o.price === 0.5 && (!o.shares || o.shares === '0')) {
+        return false;
+      }
+      return true;
+    });
+    return filteredOutcomes.find(
       o => (o.name || o.slug) === selectedOutcome
     ) || null;
   }, [market, selectedOutcome]);
@@ -727,30 +778,37 @@ export default function DebatePage() {
                                   {modelName}
                                 </div>
                                 <div className="flex gap-x-8 gap-y-2.5 flex-wrap text-sm mb-3">
-                                  {Object.entries(data.predictions).map(([outcome, percentage]) => (
-                                    <div 
-                                      key={outcome} 
-                                      className="inline-flex items-baseline gap-2"
-                                    >
-                                      <span 
-                                        style={{ 
-                                          color: "var(--foreground-secondary)",
-                                          fontSize: "13px",
-                                        }}
+                                  {Object.entries(data.predictions).map(([outcome, percentage]) => {
+                                    // Format percentage to 2 decimal places
+                                    const formattedPercentage = typeof percentage === 'number' 
+                                      ? percentage.toFixed(2) 
+                                      : parseFloat(String(percentage)).toFixed(2);
+                                    
+                                    return (
+                                      <div 
+                                        key={outcome} 
+                                        className="inline-flex items-baseline gap-2"
                                       >
-                                        {outcome}:
-                                      </span>
-                                      <span 
-                                        className="font-semibold tabular-nums" 
-                                        style={{ 
-                                          color: "var(--foreground)",
-                                          fontSize: "14px",
-                                        }}
-                                      >
-                                        {percentage}%
-                                      </span>
-                                    </div>
-                                  ))}
+                                        <span 
+                                          style={{ 
+                                            color: "var(--foreground-secondary)",
+                                            fontSize: "13px",
+                                          }}
+                                        >
+                                          {outcome}:
+                                        </span>
+                                        <span 
+                                          className="font-semibold tabular-nums" 
+                                          style={{ 
+                                            color: "var(--foreground)",
+                                            fontSize: "14px",
+                                          }}
+                                        >
+                                          {formattedPercentage}%
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
                                 </div>
                                 {data.change && (
                                   <div 
@@ -1032,12 +1090,82 @@ export default function DebatePage() {
                 paddingRight: "16px",
               }}
             >
-              {market.outcomes.map((outcome, idx) => {
+              {(() => {
+                // Filter and sort outcomes once
+                const filteredAndSorted = market.outcomes
+                  .filter((outcome) => {
+                    // Filter out placeholder outcomes only
+                    // "Other" is a legitimate outcome for some markets, but if it has price 0.5 and shares "0", it's likely a placeholder
+                    const name = outcome.name?.toLowerCase() || '';
+                    if (name.includes('placeholder')) {
+                      return false;
+                    }
+                    // Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+                    if (name === 'other' && outcome.price === 0.5 && (!outcome.shares || outcome.shares === '0')) {
+                      return false;
+                    }
+                    // Filter out outcomes with price_change_24h: 0.0 and shares: "0"
+                    if (outcome.price_change_24h !== undefined && outcome.price_change_24h === 0.0 && (!outcome.shares || outcome.shares === '0')) {
+                      return false;
+                    }
+                    // Filter out outcomes where shares is 0 or empty
+                    const shares = outcome.shares;
+                    if (!shares || shares === '0' || parseFloat(String(shares)) === 0) {
+                      return false;
+                    }
+                    return true;
+                  })
+                  .sort((a, b) => {
+                    // Sort by price in descending order (highest to lowest)
+                    const priceA = typeof a.price === 'number' ? a.price : parseFloat(String(a.price)) || 0;
+                    const priceB = typeof b.price === 'number' ? b.price : parseFloat(String(b.price)) || 0;
+                    return priceB - priceA;
+                  });
+                
+                return filteredAndSorted.map((outcome, idx) => {
                 const isSelected = selectedOutcome === (outcome.name || outcome.slug);
-                const percentage = (outcome.price * 100).toFixed(1);
-                const change24h = market.price_change_24h ? (market.price_change_24h * 100).toFixed(1) : null;
+                // Format percentage: show decimals for small values, "<1%" for very small values
+                const price = typeof outcome.price === 'number' ? outcome.price : parseFloat(String(outcome.price)) || 0;
+                const percentageValue = price * 100;
+                
+                // Debug logging for Bad Bunny
+                if (outcome.name === 'Bad Bunny') {
+                  console.log('Bad Bunny Debug:', {
+                    name: outcome.name,
+                    rawPrice: outcome.price,
+                    priceType: typeof outcome.price,
+                    parsedPrice: price,
+                    percentageValue: percentageValue,
+                    beforeRounding: percentageValue
+                  });
+                }
+                
+                let percentage: string;
+                if (percentageValue < 1) {
+                  percentage = "<1%";
+                } else if (percentageValue < 10) {
+                  // For values < 10%, show 1 decimal place (e.g., 3.6%)
+                  percentage = percentageValue.toFixed(1) + "%";
+                } else {
+                  // For values >= 10%, round to nearest integer (e.g., 96%)
+                  percentage = Math.round(percentageValue) + "%";
+                }
+                
+                // Debug logging for Bad Bunny after calculation
+                if (outcome.name === 'Bad Bunny') {
+                  console.log('Bad Bunny Final:', {
+                    percentage: percentage,
+                    percentageValue: percentageValue,
+                    rounded: Math.round(percentageValue)
+                  });
+                }
+                // Use outcome-level price_change_24h if available, otherwise fall back to market-level
+                // Backend returns price_change_24h as a decimal percentage (e.g., -0.05 means -0.05%, 0.25 means 0.25%)
+                const change24h = outcome.price_change_24h !== undefined 
+                  ? outcome.price_change_24h.toFixed(2) // Already a percentage, just format
+                  : (market.price_change_24h ? market.price_change_24h.toFixed(2) : null);
                 const isPositive = change24h ? parseFloat(change24h) > 0 : null;
-                const isLast = idx === market.outcomes.length - 1;
+                const isLast = idx === filteredAndSorted.length - 1;
 
                 return (
                   <div
@@ -1067,22 +1195,56 @@ export default function DebatePage() {
                     >
                       <div className="grid grid-cols-[2.5fr_0.9fr_0.9fr_1fr] gap-2 items-center">
                         {/* Outcome */}
-                        <div className="min-w-0">
-                          <div
-                            className="text-body font-medium truncate"
-                            style={{
-                              color: "var(--foreground)",
-                              lineHeight: "var(--leading-base)",
-                            }}
-                            title={outcome.name || outcome.slug || `Outcome ${idx + 1}`}
-                          >
-                            {outcome.name || outcome.slug || `Outcome ${idx + 1}`}
-                          </div>
-                          {outcome.shares && (
-                            <div className="text-caption mt-0.5" style={{ color: "var(--foreground-secondary)" }}>
-                              {formatVolume(outcome.shares)} Vol.
+                        <div className="min-w-0 flex items-center gap-2">
+                          {/* Outcome Image */}
+                          {outcome.image_url && (
+                            <div 
+                              className="rounded overflow-hidden shrink-0 flex items-center justify-center relative"
+                              style={{ 
+                                width: "32px",
+                                height: "32px",
+                                backgroundColor: "var(--color-soft-gray)",
+                                border: "1px solid var(--card-border)",
+                                boxShadow: "var(--shadow-sm)",
+                              }}
+                            >
+                              <img
+                                src={outcome.image_url}
+                                alt={outcome.name || 'Outcome'}
+                                className="w-full h-full object-cover"
+                                style={{
+                                  backgroundColor: "var(--color-soft-gray)",
+                                }}
+                                onError={(e) => {
+                                  e.currentTarget.style.display = 'none';
+                                }}
+                              />
+                              <div 
+                                className="absolute inset-0 pointer-events-none"
+                                style={{
+                                  background: "linear-gradient(to bottom, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.02) 100%)",
+                                  borderRadius: "inherit",
+                                }}
+                              />
                             </div>
                           )}
+                          <div className="min-w-0 flex-1">
+                            <div
+                              className="text-body font-medium truncate"
+                              style={{
+                                color: "var(--foreground)",
+                                lineHeight: "var(--leading-base)",
+                              }}
+                              title={outcome.name || outcome.slug || `Outcome ${idx + 1}`}
+                            >
+                              {outcome.name || outcome.slug || `Outcome ${idx + 1}`}
+                            </div>
+                            {outcome.shares && (
+                              <div className="text-caption mt-0.5" style={{ color: "var(--foreground-secondary)" }}>
+                                {formatVolume(outcome.shares)} Vol.
+                              </div>
+                            )}
+                          </div>
                         </div>
                         {/* Chance */}
                         <div className="text-center">
@@ -1093,7 +1255,7 @@ export default function DebatePage() {
                               lineHeight: "var(--leading-base)",
                             }}
                           >
-                            {percentage}%
+                            {percentage}
                           </div>
                         </div>
                         {/* 24h Change */}
@@ -1106,7 +1268,7 @@ export default function DebatePage() {
                                 lineHeight: "var(--leading-base)",
                               }}
                             >
-                              {isPositive ? "↑" : "↓"} {Math.abs(parseFloat(change24h)).toFixed(1)}%
+                              {isPositive ? "↑" : "↓"} {Math.abs(parseFloat(change24h)).toFixed(2)}%
                             </div>
                           ) : (
                             <div className="text-caption" style={{ color: "var(--foreground-secondary)" }}>
@@ -1129,7 +1291,8 @@ export default function DebatePage() {
                       </div>
                     </div>
                   );
-                })}
+                });
+              })()}
             </div>
           </div>
 
@@ -1161,7 +1324,20 @@ export default function DebatePage() {
                       transition: "opacity 0.2s ease",
                     }}
                   >
-                    {(selectedOutcomeData.price * 100).toFixed(1)}%
+                    {(() => {
+                      const price = typeof selectedOutcomeData.price === 'number' 
+                        ? selectedOutcomeData.price 
+                        : parseFloat(String(selectedOutcomeData.price)) || 0;
+                      // Format percentage: show decimals for small values, "<1%" for very small values
+                      const percentageValue = price * 100;
+                      if (percentageValue < 1) {
+                        return "<1%";
+                      } else if (percentageValue < 10) {
+                        return percentageValue.toFixed(1) + "%";
+                      } else {
+                        return Math.round(percentageValue) + "%";
+                      }
+                    })()}
                   </span>
                 )}
               </div>

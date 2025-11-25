@@ -14,6 +14,103 @@ from models.message import Message
 logger = logging.getLogger(__name__)
 
 
+def filter_outcomes_for_ai(outcomes: List[Dict]) -> List[Dict]:
+    """
+    Filter out placeholder and invalid outcomes before sending to AI models.
+    Only keeps outcomes that have:
+    - volume > 0 (if available)
+    - shares > 0
+    - price_change_24h != 0 (or undefined/null)
+    
+    Args:
+        outcomes: List of outcome dictionaries
+        
+    Returns:
+        Filtered list of outcomes
+    """
+    filtered = []
+    filtered_reasons = {}  # Track why outcomes were filtered
+    
+    for outcome in outcomes:
+        name = outcome.get('name', '')
+        name_lower = name.lower()
+        reason = None
+        
+        # Filter out placeholder outcomes by name
+        if 'placeholder' in name_lower:
+            reason = 'placeholder in name'
+            filtered_reasons[name] = reason
+            continue
+        
+        # Check volume - must be > 0 (if volume field exists)
+        volume = outcome.get('volume')
+        if volume is not None:
+            try:
+                volume_float = float(volume)
+                if volume_float == 0:
+                    reason = f'volume is 0 (volume={volume})'
+                    filtered_reasons[name] = reason
+                    continue
+            except (ValueError, TypeError):
+                # If volume can't be parsed and it's provided, filter it out
+                reason = f'volume cannot be parsed (volume={volume})'
+                filtered_reasons[name] = reason
+                continue
+        
+        # Check shares - must be > 0 (if shares field exists and is not None)
+        shares = outcome.get('shares')
+        if shares is not None:
+            # Shares field exists, so we can filter on it
+            try:
+                shares_float = float(shares)
+                if shares_float == 0:
+                    reason = f'shares is 0 (shares={shares})'
+                    filtered_reasons[name] = reason
+                    continue
+            except (ValueError, TypeError):
+                # If shares can't be parsed and it's provided, filter it out
+                reason = f'shares cannot be parsed (shares={shares})'
+                filtered_reasons[name] = reason
+                continue
+        # If shares is None, we can't filter on it, so allow it through
+        
+        # Check price_change_24h - must not be 0 (0% change)
+        price_change_24h = outcome.get('price_change_24h')
+        if price_change_24h is not None:
+            # If price_change_24h is defined, it must not be 0
+            if price_change_24h == 0.0 or price_change_24h == 0:
+                reason = f'price_change_24h is 0 (price_change_24h={price_change_24h})'
+                filtered_reasons[name] = reason
+                continue
+        
+        # Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+        if name_lower == 'other':
+            price = outcome.get('price', 0)
+            if price == 0.5:
+                # Double-check shares for "Other"
+                try:
+                    shares_float_check = float(shares) if shares else 0
+                    if shares_float_check == 0:
+                        reason = f'"Other" with price 0.5 and no shares'
+                        filtered_reasons[name] = reason
+                        continue
+                except (ValueError, TypeError):
+                    reason = f'"Other" with price 0.5 and shares cannot be parsed'
+                    filtered_reasons[name] = reason
+                    continue
+        
+        # Outcome passed all filters
+        filtered.append(outcome)
+    
+    # Log filtering results
+    if filtered_reasons:
+        logger.info(f"Filtered out {len(filtered_reasons)} outcomes. Reasons: {filtered_reasons}")
+    if len(filtered) == 0 and len(outcomes) > 0:
+        logger.warning(f"WARNING: All {len(outcomes)} outcomes were filtered out! Sample outcome data: {outcomes[0] if outcomes else 'N/A'}")
+    
+    return filtered
+
+
 class DebateService:
     """Service for managing AI debates on prediction markets"""
 
@@ -109,6 +206,11 @@ class DebateService:
         if not debate:
             return
 
+        # Assign unique voices to each model at the start of the debate
+        model_ids = [model.model_id for model in debate.selected_models]
+        voice_assignments = elevenlabs_service.assign_voices_to_models(model_ids)
+        logger.info(f"Assigned voices to models: {voice_assignments}")
+
         # Send debate_started event
         await event_queue.put({
             'event': 'debate_started',
@@ -154,7 +256,7 @@ class DebateService:
                 message_type = 'debate'
 
             # Each model takes a turn in this round
-            for model in debate.selected_models:
+            for model_index, model in enumerate(debate.selected_models):
                 # Send model_thinking event
                 await event_queue.put({
                     'event': 'model_thinking',
@@ -173,11 +275,32 @@ class DebateService:
                 try:
                     logger.info(f"Requesting response from {model.model_id} for round {round_num}")
 
+                    # Debug: Log raw outcomes before filtering
+                    logger.info(f"Raw outcomes before filtering for {model.model_id}: {len(debate.outcomes)} outcomes")
+                    if debate.outcomes:
+                        sample_outcome = debate.outcomes[0]
+                        logger.info(f"Sample outcome structure: {sample_outcome}")
+                        logger.info(f"Sample outcome fields: {list(sample_outcome.keys())}")
+                    
+                    # Filter out placeholders and invalid outcomes before sending to AI
+                    filtered_outcomes = filter_outcomes_for_ai(debate.outcomes)
+                    logger.info(f"Filtered outcomes for AI: {len(filtered_outcomes)} out of {len(debate.outcomes)} total outcomes")
+                    
+                    # Debug: Log the actual outcomes being sent to AI
+                    if filtered_outcomes:
+                        logger.info(f"Outcomes being sent to {model.model_id}: {[o.get('name') for o in filtered_outcomes]}")
+                        logger.info(f"Full filtered outcomes data for {model.model_id}: {filtered_outcomes}")
+                    else:
+                        logger.error(f"ERROR: No outcomes passed filter for {model.model_id}! All {len(debate.outcomes)} outcomes were filtered out.")
+                        # Log a few sample outcomes to debug
+                        for i, outcome in enumerate(debate.outcomes[:5]):
+                            logger.error(f"Sample outcome {i+1} that was filtered: name={outcome.get('name')}, volume={outcome.get('volume')}, shares={outcome.get('shares')}, price_change_24h={outcome.get('price_change_24h')}")
+
                     response = await openrouter_service.generate_response(
                         model_id=model.model_id,
                         market_question=debate.market_question,
                         market_description=debate.market_description,
-                        outcomes=debate.outcomes,
+                        outcomes=filtered_outcomes,
                         context=context,
                         round_num=round_num,
                         is_final_round=(message_type == 'final')
@@ -196,9 +319,77 @@ class DebateService:
 
                     logger.info(f"Received response from {model.model_id}: {len(response['content'])} chars")
 
-                    # Extract predictions from response
+                    # Extract predictions from response - use as-is from AI
                     predictions = response.get('predictions', {})
-                    logger.info(f"Predictions from {model.model_id}: {predictions}")
+                    logger.info(f"Predictions from {model.model_id} (raw): {predictions}")
+                    
+                    # Get valid outcome names from filtered outcomes (what we sent to AI)
+                    valid_outcome_names = {o.get('name') for o in filtered_outcomes}
+                    valid_outcome_names_lower = {name.lower(): name for name in valid_outcome_names}
+                    
+                    # Filter and validate predictions - be lenient, keep predictions even if names don't match exactly
+                    if predictions:
+                        filtered_predictions = {}
+                        
+                        # First, filter out placeholder predictions
+                        for pred_name, pred_value in predictions.items():
+                            pred_name_lower = pred_name.lower()
+                            if 'placeholder' in pred_name_lower:
+                                logger.debug(f"Filtering out placeholder prediction: {pred_name}")
+                                continue
+                            filtered_predictions[pred_name] = pred_value
+                        
+                        # Try to match predictions to valid outcomes (case-insensitive)
+                        # Keep predictions even if they don't match exactly - AI might use slightly different names
+                        matched_predictions = {}
+                        unmatched_predictions = {}
+                        
+                        for pred_name, pred_value in filtered_predictions.items():
+                            # Try exact match first
+                            if pred_name in valid_outcome_names:
+                                matched_predictions[pred_name] = pred_value
+                            # Try case-insensitive match
+                            elif pred_name.lower() in valid_outcome_names_lower:
+                                correct_name = valid_outcome_names_lower[pred_name.lower()]
+                                matched_predictions[correct_name] = pred_value
+                            else:
+                                # Keep unmatched predictions - they might still be valid
+                                unmatched_predictions[pred_name] = pred_value
+                        
+                        # Combine matched and unmatched (be lenient - keep all non-placeholder predictions)
+                        final_predictions = {**matched_predictions, **unmatched_predictions}
+                        
+                        # Log warnings for missing outcomes, but don't remove predictions
+                        missing_outcomes = valid_outcome_names - set(matched_predictions.keys())
+                        if missing_outcomes:
+                            logger.warning(f"Missing predictions for some outcomes from {model.model_id}: {missing_outcomes}")
+                        
+                        # Log info about unmatched predictions
+                        if unmatched_predictions:
+                            logger.info(f"Unmatched predictions (keeping them): {list(unmatched_predictions.keys())}")
+                        
+                        # Renormalize to sum to exactly 100.00 (preserving decimals)
+                        if final_predictions:
+                            total = sum(final_predictions.values())
+                            if total > 0:
+                                # Normalize to 100, preserving up to 2 decimal places
+                                normalized = {k: round(v * 100 / total, 2) for k, v in final_predictions.items()}
+                                # Adjust for rounding errors to ensure sum equals exactly 100.00
+                                current_sum = sum(normalized.values())
+                                diff = round(100.00 - current_sum, 2)
+                                if abs(diff) > 0.01:  # If difference is significant
+                                    # Add/subtract difference to the largest value
+                                    max_key = max(normalized.items(), key=lambda x: x[1])[0]
+                                    normalized[max_key] = round(normalized[max_key] + diff, 2)
+                                final_predictions = normalized
+                        
+                        # Convert to float (preserving decimals, up to 2 decimal places)
+                        predictions = {k: round(float(v), 2) for k, v in final_predictions.items()}
+                    else:
+                        predictions = {}
+                        logger.warning(f"No predictions received from {model.model_id}")
+                    
+                    logger.info(f"Final predictions from {model.model_id}: {predictions}")
 
                     # Create message using Message model
                     message = Message.create(
@@ -214,10 +405,12 @@ class DebateService:
                     # Generate audio for this message
                     try:
                         logger.info(f"Generating audio for message {message.message_id}")
+                        # Use the assigned voice for this model (based on model_index)
                         audio_result = await elevenlabs_service.generate_speech(
                             text=message.text,
                             model_id=model.model_id,
-                            message_id=message.message_id
+                            message_id=message.message_id,
+                            model_index=model_index
                         )
 
                         if audio_result.get('audio_url'):
@@ -382,10 +575,12 @@ class DebateService:
                     try:
                         # Generate Gemini summary
                         logger.info(f"Generating new summary for debate {debate_id}")
+                        # Filter outcomes for summary generation
+                        filtered_outcomes_for_summary = filter_outcomes_for_ai(debate.outcomes)
                         summary = gemini_service.generate_debate_summary(
                             market_question=debate.market_question,
                             market_description=debate.market_description or "",
-                            outcomes=debate.outcomes,
+                            outcomes=filtered_outcomes_for_summary,
                             messages=messages_dict,
                             models=models_dict
                         )
@@ -408,10 +603,12 @@ class DebateService:
                 logger.warning(f"Timeout waiting for summary generation for debate {debate_id}")
                 # Force generate (override lock)
                 logger.info(f"Force generating summary for debate {debate_id}")
+                # Filter outcomes for summary generation
+                filtered_outcomes_for_summary = filter_outcomes_for_ai(debate.outcomes)
                 summary = gemini_service.generate_debate_summary(
                     market_question=debate.market_question,
                     market_description=debate.market_description or "",
-                    outcomes=debate.outcomes,
+                    outcomes=filtered_outcomes_for_summary,
                     messages=messages_dict,
                     models=models_dict
                 )
@@ -441,10 +638,12 @@ class DebateService:
                         # Find largest outcome
                         max_outcome = max(final_pred, key=final_pred.get)
                         change_value = final_pred.get(max_outcome, 0) - initial_pred.get(max_outcome, 0)
-                        if change_value > 0:
-                            change = f"+{change_value}% {max_outcome} after debate"
-                        elif change_value < 0:
-                            change = f"{change_value}% {max_outcome} after debate"
+                        # Round to 2 decimal places
+                        change_value_rounded = round(change_value, 2)
+                        if change_value_rounded > 0:
+                            change = f"+{change_value_rounded:.2f}% {max_outcome} after debate"
+                        elif change_value_rounded < 0:
+                            change = f"{change_value_rounded:.2f}% {max_outcome} after debate"
                         else:
                             change = "No change, maintained position"
                     else:

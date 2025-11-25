@@ -85,6 +85,10 @@ class DebateOutcomeDB(Base):
     # Outcome information
     name = Column(String(200), nullable=False)
     price = Column(Float, nullable=False)
+    shares = Column(String(50), nullable=True)  # Can be a large number, store as string
+    volume = Column(Float, nullable=True)
+    price_change_24h = Column(Float, nullable=True)
+    image_url = Column(String(500), nullable=True)
 
     # Relationship
     debate = relationship("DebateDB", back_populates="outcomes")
@@ -140,7 +144,7 @@ class MessagePredictionDB(Base):
 
     # Prediction data
     outcome_name = Column(String(200), nullable=False)
-    percentage = Column(Integer, nullable=False)  # 0-100
+    percentage = Column(Float, nullable=False)  # 0-100, can include decimals
 
     # Relationship
     message = relationship("MessageDB", back_populates="predictions")

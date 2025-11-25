@@ -35,6 +35,29 @@ const transformMarket = (market: Market) => {
     ? new Date(market.end_date).getTime() - Date.now() < 24 * 60 * 60 * 1000 // Less than 24 hours
     : false;
 
+  // Filter outcomes globally - apply same filter everywhere
+  const filteredOutcomes = market.outcomes.filter((outcome) => {
+    // Filter out placeholder outcomes
+    const name = outcome.name?.toLowerCase() || '';
+    if (name.includes('placeholder')) {
+      return false;
+    }
+    // Filter out "Other" only if it looks like a placeholder (price 0.5 and no shares)
+    if (name === 'other' && outcome.price === 0.5 && (!outcome.shares || outcome.shares === '0')) {
+      return false;
+    }
+    // Filter out outcomes with price_change_24h: 0.0 and shares: "0"
+    if (outcome.price_change_24h !== undefined && outcome.price_change_24h === 0.0 && (!outcome.shares || outcome.shares === '0')) {
+      return false;
+    }
+    // Filter out outcomes where shares is 0 or empty
+    const shares = outcome.shares;
+    if (!shares || shares === '0' || parseFloat(String(shares)) === 0) {
+      return false;
+    }
+    return true;
+  });
+
   return {
     id: market.id,
     question: market.question,
@@ -42,11 +65,13 @@ const transformMarket = (market: Market) => {
     category: market.category,
     tag_id: typeof market.tag_id === 'object' && market.tag_id !== null ? market.tag_id.id : market.tag_id,
     market_type: market.market_type,
-    outcomes: market.outcomes.map(outcome => ({
+    outcomes: filteredOutcomes.map(outcome => ({
       name: outcome.name,
       slug: outcome.slug,
       price: outcome.price,
       shares: outcome.shares,
+      price_change_24h: outcome.price_change_24h,
+      image_url: outcome.image_url,
     })),
     volume: market.volume,
     volume_24h: market.volume_24h,
@@ -160,6 +185,25 @@ export function useMarkets({
   // Filter and sort markets based on subtopic and search
   const filteredMarkets = useMemo(() => {
     let filtered = allMarkets.map(transformMarket);
+    
+    // Filter by ended status based on category
+    if (category === "ended") {
+      // Show only ended markets
+      const now = new Date();
+      filtered = filtered.filter((market) => {
+        if (!market.end_date) return false;
+        const endDate = new Date(market.end_date);
+        return endDate.getTime() < now.getTime();
+      });
+    } else {
+      // Filter out ended markets from regular categories
+      const now = new Date();
+      filtered = filtered.filter((market) => {
+        if (!market.end_date) return true; // Keep markets without end_date
+        const endDate = new Date(market.end_date);
+        return endDate.getTime() >= now.getTime(); // Keep only active markets
+      });
+    }
 
     if (activeSubtopic !== "All") {
       const now = new Date();
@@ -201,6 +245,29 @@ export function useMarkets({
           const endDate = new Date(market.end_date);
           const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
           return daysUntilEnd > 0 && daysUntilEnd <= 7;
+        }
+        
+        // Ended category filters
+        if (category === "ended") {
+          if (!market.end_date) return false;
+          const endDate = new Date(market.end_date);
+          const daysSinceEnd = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+          
+          if (subtopicLower === "today") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 1;
+          }
+          
+          if (subtopicLower === "this week") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 7;
+          }
+          
+          if (subtopicLower === "this month") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 30;
+          }
+          
+          if (subtopicLower === "older") {
+            return daysSinceEnd >= 30;
+          }
         }
         
         // New markets filter
@@ -261,6 +328,15 @@ export function useMarkets({
           return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
         });
       }
+      
+      // Sort ended markets by end date (most recently ended first)
+      if (category === "ended") {
+        filtered.sort((a, b) => {
+          if (!a.end_date) return 1;
+          if (!b.end_date) return -1;
+          return new Date(b.end_date).getTime() - new Date(a.end_date).getTime();
+        });
+      }
     }
     
     // Default sort for breaking category (when "All" is selected) - newest first
@@ -269,6 +345,15 @@ export function useMarkets({
         if (!a.created_date) return 1;
         if (!b.created_date) return -1;
         return new Date(b.created_date).getTime() - new Date(a.created_date).getTime();
+      });
+    }
+    
+    // Default sort for ended category (when "All" is selected) - most recently ended first
+    if (category === "ended" && activeSubtopic === "All") {
+      filtered.sort((a, b) => {
+        if (!a.end_date) return 1;
+        if (!b.end_date) return -1;
+        return new Date(b.end_date).getTime() - new Date(a.end_date).getTime();
       });
     }
 
