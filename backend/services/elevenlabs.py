@@ -4,7 +4,7 @@ ElevenLabs TTS integration service
 import aiohttp
 import logging
 import os
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from config import config
 
 logger = logging.getLogger(__name__)
@@ -22,32 +22,86 @@ class ElevenLabsService:
         else:
             logger.warning("ElevenLabs API key not found in environment variables")
 
-        # Map model names to different voices for variety
-        self.voice_map = {
-            'default': 'pNInz6obpgDQGcFmaJgB',  # Adam - deep, calm
-            'google': '21m00Tcm4TlvDq8ikWAM',   # Rachel - soft, warm
-            'deepseek': 'AZnzlk1XvdvUeBnXmlld',  # Domi - strong, confident
-            'meta': 'EXAVITQu4vr4xnSDxMaL',      # Bella - gentle
-            'anthropic': 'ErXwobaYiN019PkySvjV',  # Antoni - well-rounded
-            'openai': 'MF3mGyEYCl7XYWbV9V6O',    # Elli - youthful
-            'mistral': 'TxGEqnHWrfWFTfGW9XjX',   # Josh - deep
-            'qwen': 'VR6AewLTigWG4xSOukaG',      # Arnold - crisp
-            'cohere': 'pqHfZKP75CvOlQylNhV4',    # Bill - documentary
-        }
+        # Available voice IDs to use
+        self.available_voices = [
+            'DwwuoY7Uz8AP8zrY5TAo',
+            'UQoLnPXvf18gaKpLzfb8',
+            'flHkNRp1BlvT73UL6gyz',
+            'si0svtk05vPEuvwAW93c',
+        ]
+        
+        # Store model-to-voice assignments to ensure consistency within a debate
+        self.model_voice_cache = {}
 
-    def get_voice_for_model(self, model_id: str) -> str:
-        """Get appropriate voice ID for a model"""
-        # Extract provider from model ID
-        provider = model_id.split('/')[0].lower() if '/' in model_id else 'default'
-
-        # Return mapped voice or default
-        return self.voice_map.get(provider, self.voice_map['default'])
+    def get_voice_for_model(self, model_id: str, model_index: Optional[int] = None) -> str:
+        """
+        Get appropriate voice ID for a model.
+        Each model gets a unique voice based on model_id hash, ensuring different voices in debates.
+        
+        Args:
+            model_id: The AI model ID (e.g., 'openai/gpt-4.1-nano')
+            model_index: Optional index of the model in the debate (0-3) to ensure unique voices
+        
+        Returns:
+            Voice ID string
+        """
+        # If model_index is provided, use it directly to assign voices (0-3)
+        if model_index is not None and 0 <= model_index < len(self.available_voices):
+            voice_id = self.available_voices[model_index % len(self.available_voices)]
+            self.model_voice_cache[model_id] = voice_id
+            return voice_id
+        
+        # If we've already assigned a voice to this model, use it (for consistency)
+        if model_id in self.model_voice_cache:
+            return self.model_voice_cache[model_id]
+        
+        # Assign voice based on model_id hash for consistent assignment
+        import hashlib
+        hash_value = int(hashlib.md5(model_id.encode()).hexdigest(), 16)
+        voice_id = self.available_voices[hash_value % len(self.available_voices)]
+        
+        # Cache the assignment
+        self.model_voice_cache[model_id] = voice_id
+        
+        return voice_id
+    
+    def assign_voices_to_models(self, model_ids: List[str]) -> Dict[str, str]:
+        """
+        Assign unique voices to a list of models for a debate.
+        Ensures each model gets a different voice.
+        
+        Args:
+            model_ids: List of model IDs participating in the debate
+        
+        Returns:
+            Dictionary mapping model_id to voice_id
+        """
+        assignments = {}
+        used_voices = set()
+        
+        for idx, model_id in enumerate(model_ids):
+            # Try to assign voices in order, but skip if already used
+            voice_index = idx % len(self.available_voices)
+            
+            # If this voice is already assigned, find the next available one
+            attempts = 0
+            while self.available_voices[voice_index] in used_voices and attempts < len(self.available_voices):
+                voice_index = (voice_index + 1) % len(self.available_voices)
+                attempts += 1
+            
+            voice_id = self.available_voices[voice_index]
+            assignments[model_id] = voice_id
+            used_voices.add(voice_id)
+            self.model_voice_cache[model_id] = voice_id
+        
+        return assignments
 
     async def generate_speech(
         self,
         text: str,
         model_id: str,
-        message_id: str
+        message_id: str,
+        model_index: Optional[int] = None
     ) -> Dict:
         """
         Generate speech audio from text
@@ -70,7 +124,7 @@ class ElevenLabsService:
             }
 
         try:
-            voice_id = self.get_voice_for_model(model_id)
+            voice_id = self.get_voice_for_model(model_id, model_index=model_index)
 
 
             # Truncate text if too long (ElevenLabs has character limits)

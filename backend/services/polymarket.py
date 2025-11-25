@@ -241,6 +241,13 @@ class PolymarketService:
             response.raise_for_status()
             data = response.json()
 
+            # Debug: Log raw API response for Bad Bunny market
+            if market_id == '35754':
+                logger.info(f"Raw API response for market {market_id}: outcomePrices={data.get('outcomePrices')}, markets count={len(data.get('markets', []))}")
+                if data.get('markets'):
+                    first_market = data.get('markets', [])[0]
+                    logger.info(f"First market outcomePrices: {first_market.get('outcomePrices')}")
+
             market = self._transform_market_detail(data)
 
             # Cache the result
@@ -303,13 +310,14 @@ class PolymarketService:
             # Calculate price change and sparkline data
             price_data = self._calculate_price_metrics(markets_data, volume_24h, raw_volume)
 
+            # Pass event data to _get_outcomes so it can access event-level outcomePrices
             market = {
                 'id': event.get('id'),
                 'question': event.get('title'),
                 'description': event.get('description', ''),
                 'category': self._get_category_name(event.get('tags', [])),
                 'tag_id': event.get('tags', [None])[0] if event.get('tags') else None,
-                'outcomes': self._get_outcomes(markets_data),
+                'outcomes': self._get_outcomes(markets_data, event_data=event),
                 'volume': self._format_volume(raw_volume),
                 'volume_raw': raw_volume,  # Keep raw volume for sorting
                 'volume_24h': self._format_volume(volume_24h),
@@ -340,7 +348,7 @@ class PolymarketService:
             'category': self._get_category_name(event.get('tags', [])),
             'tag_id': event.get('tags', [None])[0] if event.get('tags') else None,
             'market_type': 'binary' if len(markets_data) == 2 else 'categorical',
-            'outcomes': self._get_outcomes(markets_data),
+            'outcomes': self._get_outcomes(markets_data, event_data=event),
             'volume': self._format_volume(raw_volume),
             'volume_24h': self._format_volume(volume_24h),
             'price_change_24h': price_data['price_change'],
@@ -412,24 +420,114 @@ class PolymarketService:
             'sparkline': sparkline
         }
 
-    def _get_outcomes(self, markets: List[Dict]) -> List[Dict]:
+    def _get_outcomes(self, markets: List[Dict], event_data: Optional[Dict] = None) -> List[Dict]:
         """Extract outcomes from Polymarket markets"""
         outcomes = []
 
-        for market in markets:
-            # Handle outcomePrices - can be array or string
-            outcome_prices = market.get('outcomePrices', [0.5])
-            if isinstance(outcome_prices, str):
-                # Parse string like "[0.5, 0.5]" or just use default
-                try:
-                    import json
-                    outcome_prices = json.loads(outcome_prices)
-                except:
-                    outcome_prices = [0.5]
+        # Get all outcome prices from event level first (if available)
+        # Then fallback to getting from first market's outcomePrices array
+        all_outcome_prices = None
+        all_outcome_price_changes = None
+        
+        # Try event level first
+        if event_data:
+            outcome_prices = event_data.get('outcomePrices', None)
+            if outcome_prices:
+                if isinstance(outcome_prices, str):
+                    try:
+                        import json
+                        outcome_prices = json.loads(outcome_prices)
+                    except:
+                        outcome_prices = None
+                if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
+                    all_outcome_prices = [float(p) for p in outcome_prices]
+                    # Debug: Log outcomePrices from event level
+                    logger.info(f"Event-level outcomePrices: {all_outcome_prices[:5]}... (first 5)")
+            
+            # Try to get 24h price changes from event level
+            price_changes = event_data.get('priceChanges24h', None)
+            if price_changes is None:
+                price_changes = event_data.get('oneDayPriceChanges', None)
+            if price_changes:
+                if isinstance(price_changes, str):
+                    try:
+                        import json
+                        price_changes = json.loads(price_changes)
+                    except:
+                        price_changes = None
+                if isinstance(price_changes, list):
+                    all_outcome_price_changes = [float(p) * 100 for p in price_changes]  # Convert to percentage
+        
+        # Fallback: Get outcomePrices from first market (like breaking markets do)
+        if all_outcome_prices is None and markets:
+            first_market = markets[0]
+            outcome_prices = first_market.get('outcomePrices', None)
+            if outcome_prices:
+                if isinstance(outcome_prices, str):
+                    try:
+                        import json
+                        outcome_prices = json.loads(outcome_prices)
+                    except:
+                        outcome_prices = None
+                if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
+                    all_outcome_prices = [float(p) for p in outcome_prices]
+                    # Debug: Log outcomePrices from first market fallback
+                    logger.info(f"First market fallback outcomePrices: {all_outcome_prices[:5]}... (first 5)")
 
-            price = float(outcome_prices[0]) if outcome_prices else 0.5
+        for idx, market in enumerate(markets):
+            # Try multiple ways to get the probability/price for this outcome
+            price = None
+            
+            # Method 1: Try outcomePrices from THIS specific market object first (most reliable for categorical markets)
+            # Each market in a categorical market has its own outcomePrices array
+            outcome_prices = market.get('outcomePrices', None)
+            if outcome_prices:
+                if isinstance(outcome_prices, str):
+                    try:
+                        import json
+                        outcome_prices = json.loads(outcome_prices)
+                    except:
+                        outcome_prices = None
+                if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
+                    # For categorical markets, each market has its own outcomePrices
+                    # Usually the first element is the price for this outcome
+                    price = float(outcome_prices[0])
+                    # Debug: Log Bad Bunny price extraction
+                    if market.get('groupItemTitle', '').lower() == 'bad bunny':
+                        logger.info(f"Bad Bunny price from market outcomePrices[0]: {price}, market outcomePrices: {outcome_prices}")
+            
+            # Method 2: Use event-level or first market outcomePrices array with index (fallback)
+            if price is None and all_outcome_prices and idx < len(all_outcome_prices):
+                price = all_outcome_prices[idx]
+                # Debug: Log Bad Bunny price extraction
+                if market.get('groupItemTitle', '').lower() == 'bad bunny':
+                    logger.info(f"Bad Bunny price from all_outcome_prices[{idx}]: {price}, all_outcome_prices length: {len(all_outcome_prices)}")
+            
+            # Method 3: Try direct price field on market object
+            if price is None:
+                if 'price' in market:
+                    price = float(market.get('price', 0.5))
+                elif 'currentPrice' in market:
+                    price = float(market.get('currentPrice', 0.5))
+                elif 'yesPrice' in market:
+                    price = float(market.get('yesPrice', 0.5))
+            
+            # Default fallback
+            if price is None:
+                price = 0.5
+            
+            # Get 24h price change for this outcome
+            price_change_24h = None
+            if all_outcome_price_changes and idx < len(all_outcome_price_changes):
+                price_change_24h = all_outcome_price_changes[idx]
+            else:
+                # Try to get from market object directly
+                if 'priceChange24h' in market:
+                    price_change_24h = float(market.get('priceChange24h', 0)) * 100
+                elif 'oneDayPriceChange' in market:
+                    price_change_24h = float(market.get('oneDayPriceChange', 0)) * 100
 
-            # Handle clobTokenIds similarly
+            # Handle clobTokenIds
             token_ids = market.get('clobTokenIds', [''])
             if isinstance(token_ids, str):
                 try:
@@ -438,22 +536,30 @@ class PolymarketService:
                 except:
                     token_ids = ['']
 
+            # Use index to get correct token ID
+            token_id = token_ids[idx] if isinstance(token_ids, list) and idx < len(token_ids) else (token_ids[0] if token_ids else '')
+
             outcome = {
                 'name': market.get('groupItemTitle', market.get('question', '')),
-                'slug': token_ids[0] if token_ids else '',
+                'slug': token_id,
                 'price': price,
                 'shares': str(market.get('volume', 0))
             }
+            
+            # Add image URL if available
+            image_url = market.get('image', None) or market.get('imageUrl', None)
+            if image_url:
+                outcome['image_url'] = image_url
+            
+            # Add price change if available
+            if price_change_24h is not None:
+                outcome['price_change_24h'] = round(price_change_24h, 2)
+            
             outcomes.append(outcome)
 
-        # Validate and normalize prices to sum to 1.0
-        if outcomes:
-            total_price = sum(o['price'] for o in outcomes)
-            if total_price > 0 and abs(total_price - 1.0) > 0.01:  # Allow 1% tolerance
-                logger.warning(f"Outcome prices sum to {total_price}, normalizing to 1.0")
-                for outcome in outcomes:
-                    outcome['price'] = outcome['price'] / total_price
-
+        # DO NOT normalize prices - use them as-is from Polymarket API
+        # Breaking markets work correctly because they don't normalize
+        # The prices from outcomePrices array are already correct probabilities
         return outcomes
 
     def _get_category_name(self, tags: List[str]) -> str:
