@@ -7,6 +7,9 @@ import json
 import logging
 from services.debate import debate_service
 from config import config
+from database import get_db
+from models.db_models import DebateDB
+from utils.auth import require_auth
 
 logger = logging.getLogger(__name__)
 debate_bp = Blueprint('debate', __name__)
@@ -31,7 +34,8 @@ def list_debates():
 
 
 @debate_bp.route('/debate/start', methods=['POST'])
-def start_debate():
+@require_auth
+def start_debate(current_user):
     """POST /api/debate/start - Create and start a new debate"""
     try:
         data = request.get_json()
@@ -83,11 +87,12 @@ def start_debate():
                 }
             }), 400
 
-        # Create debate
+        # Create debate with user_id
         debate = debate_service.create_debate(
             market_id=market_id,
             model_ids=model_ids,
-            rounds=rounds
+            rounds=rounds,
+            user_id=current_user.id
         )
 
         return jsonify(debate), 201
@@ -287,6 +292,68 @@ def get_debate_results(debate_id):
         return jsonify(results), 200
 
     except Exception as e:
+        return jsonify({
+            'error': {
+                'code': 'internal_error',
+                'message': str(e)
+            }
+        }), 500
+
+
+@debate_bp.route('/debates/<debate_id>', methods=['DELETE'])
+@require_auth
+def delete_debate(current_user, debate_id):
+    """
+    DELETE /api/debates/:id - Soft delete a debate
+
+    Args:
+        current_user: Current authenticated user (from @require_auth)
+        debate_id: Debate ID to delete
+
+    Returns:
+        200: Debate deleted successfully
+        403: User not authorized to delete this debate
+        404: Debate not found
+        500: Server error
+    """
+    try:
+        user_id = current_user.id
+        db = get_db()
+
+        # Get debate
+        debate = db.query(DebateDB).filter_by(debate_id=debate_id).first()
+
+        if not debate:
+            return jsonify({
+                'error': {
+                    'code': 'not_found',
+                    'message': 'Debate not found'
+                }
+            }), 404
+
+        # Check if user owns this debate
+        if debate.user_id != user_id:
+            return jsonify({
+                'error': {
+                    'code': 'unauthorized',
+                    'message': 'You can only delete your own debates'
+                }
+            }), 403
+
+        # Soft delete
+        debate.is_deleted = True
+        db.commit()
+
+        logger.info(f"Debate {debate_id} soft deleted by user {user_id}")
+
+        return jsonify({
+            'message': 'Debate deleted successfully',
+            'debate_id': debate_id
+        }), 200
+
+    except Exception as e:
+        logger.error(f"Error deleting debate: {e}", exc_info=True)
+        db.rollback()
         return jsonify({
             'error': {
                 'code': 'internal_error',

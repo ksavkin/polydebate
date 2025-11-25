@@ -24,7 +24,8 @@ class DebateService:
         self,
         market_id: str,
         model_ids: List[str],
-        rounds: int
+        rounds: int,
+        user_id: Optional[int] = None
     ) -> Dict:
         """
         Create a new debate
@@ -33,6 +34,7 @@ class DebateService:
             market_id: Polymarket market ID
             model_ids: List of AI model IDs to participate
             rounds: Number of debate rounds
+            user_id: Optional user ID who created the debate
 
         Returns:
             Dict with debate details
@@ -54,7 +56,8 @@ class DebateService:
         debate = Debate.create(
             market=market,
             models=models,
-            rounds=rounds
+            rounds=rounds,
+            user_id=user_id
         )
 
         # Save to disk
