@@ -36,7 +36,14 @@ export function ProfileHeader({ user, onEditClick, onLogoutClick }: ProfileHeade
   };
 
   return (
-    <Card className="bg-gradient-to-br from-[#1a1f2e] to-[#252b3b] border-gray-800 mb-6">
+    <Card
+      className="mb-6"
+      style={{
+        backgroundColor: "var(--card-bg)",
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
       <CardContent className="p-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div className="flex items-center gap-4">
@@ -45,19 +52,23 @@ export function ProfileHeader({ user, onEditClick, onLogoutClick }: ProfileHeade
               <img
                 src={`http://localhost:5001${user.avatar_url}`}
                 alt={user.name}
-                className="w-20 h-20 rounded-full object-cover border-2 border-gray-700"
+                className="w-20 h-20 rounded-full object-cover border-2"
+                style={{ borderColor: "var(--card-border)" }}
               />
             ) : (
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-2xl font-bold text-white">
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white"
+                style={{ background: "linear-gradient(135deg, var(--color-primary), #8b5cf6)" }}
+              >
                 {getInitials(user.name)}
               </div>
             )}
 
             {/* User Info */}
             <div>
-              <h1 className="text-2xl font-bold text-white">{user.name}</h1>
-              <p className="text-gray-400">{user.email}</p>
-              <p className="text-sm text-gray-500">
+              <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>{user.name}</h1>
+              <p style={{ color: "var(--foreground-secondary)" }}>{user.email}</p>
+              <p className="text-sm" style={{ color: "var(--foreground-secondary)" }}>
                 Member since {formatDate(user.created_at)}
               </p>
             </div>
@@ -67,14 +78,19 @@ export function ProfileHeader({ user, onEditClick, onLogoutClick }: ProfileHeade
           <div className="flex gap-3">
             <Button
               onClick={onEditClick}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
+              style={{ backgroundColor: "var(--color-primary)" }}
             >
               Edit Profile
             </Button>
             <Button
               onClick={onLogoutClick}
               variant="outline"
-              className="border-gray-700 bg-gray-900 hover:bg-gray-800 text-white"
+              style={{
+                borderColor: "var(--card-border)",
+                color: "var(--foreground)",
+                backgroundColor: "transparent"
+              }}
             >
               Log Out
             </Button>

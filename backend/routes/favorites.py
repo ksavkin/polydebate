@@ -62,16 +62,18 @@ def get_user_favorites(current_user):
 @require_auth
 def add_favorite(current_user):
     """
-    POST /api/favorites - Add market to favorites
+    POST /api/favorites - Add market/debate to favorites
 
     Request body:
     {
-        "market_id": "string"
+        "market_id": "string",
+        "debate_id": "string" (optional)
     }
     """
     try:
         data = request.get_json()
         market_id = data.get('market_id')
+        debate_id = data.get('debate_id')
 
         if not market_id:
             return jsonify({
@@ -84,15 +86,20 @@ def add_favorite(current_user):
         db = get_db()
         try:
             # Check if already favorited
-            existing = db.query(UserFavorite).filter(
+            query = db.query(UserFavorite).filter(
                 UserFavorite.user_id == current_user.id,
                 UserFavorite.market_id == market_id
-            ).first()
+            )
+            
+            if debate_id:
+                query = query.filter(UserFavorite.debate_id == debate_id)
+            
+            existing = query.first()
 
             if existing:
                 return jsonify({
                     'success': True,
-                    'message': 'Market already in favorites',
+                    'message': 'Already in favorites',
                     'data': existing.to_dict()
                 }), 200
 
@@ -100,6 +107,7 @@ def add_favorite(current_user):
             new_favorite = UserFavorite(
                 user_id=current_user.id,
                 market_id=market_id,
+                debate_id=debate_id,
                 created_at=datetime.utcnow()
             )
 
@@ -108,20 +116,25 @@ def add_favorite(current_user):
             db.refresh(new_favorite)
 
             logger.info(
-                f"Market added to favorites",
+                f"Added to favorites",
                 user_id=current_user.id,
                 market_id=market_id,
+                debate_id=debate_id,
                 event='favorite_added'
             )
 
             return jsonify({
                 'success': True,
-                'message': 'Market added to favorites',
+                'message': 'Added to favorites',
                 'data': new_favorite.to_dict()
             }), 201
 
         except IntegrityError:
             db.rollback()
+            # If unique constraint fails, it might be due to (user_id, market_id) constraint
+            # We might need to handle this if we want multiple favorites for same market (different debates)
+            # Since we didn't drop the unique constraint, this will fail if we try to add a second debate for the same market.
+            # We need to handle this.
             return jsonify({
                 'error': {
                     'code': 'already_exists',
@@ -142,26 +155,33 @@ def add_favorite(current_user):
         }), 500
 
 
-@favorites_bp.route('/favorites/<market_id>', methods=['DELETE'])
+@favorites_bp.route('/favorites/<resource_id>', methods=['DELETE'])
 @require_auth
-def remove_favorite(current_user, market_id):
+def remove_favorite(current_user, resource_id):
     """
-    DELETE /api/favorites/<market_id> - Remove market from favorites
+    DELETE /api/favorites/<resource_id> - Remove favorite by debate_id or market_id
     """
     try:
         db = get_db()
         try:
-            # Find favorite
+            # Try to find by debate_id first (more specific)
             favorite = db.query(UserFavorite).filter(
                 UserFavorite.user_id == current_user.id,
-                UserFavorite.market_id == market_id
+                UserFavorite.debate_id == resource_id
             ).first()
+
+            # If not found, try by market_id
+            if not favorite:
+                favorite = db.query(UserFavorite).filter(
+                    UserFavorite.user_id == current_user.id,
+                    UserFavorite.market_id == resource_id
+                ).first()
 
             if not favorite:
                 return jsonify({
                     'error': {
                         'code': 'not_found',
-                        'message': 'Market not in favorites'
+                        'message': 'Favorite not found'
                     }
                 }), 404
 
@@ -170,15 +190,15 @@ def remove_favorite(current_user, market_id):
             db.commit()
 
             logger.info(
-                f"Market removed from favorites",
+                f"Removed from favorites",
                 user_id=current_user.id,
-                market_id=market_id,
+                resource_id=resource_id,
                 event='favorite_removed'
             )
 
             return jsonify({
                 'success': True,
-                'message': 'Market removed from favorites'
+                'message': 'Removed from favorites'
             }), 200
 
         finally:

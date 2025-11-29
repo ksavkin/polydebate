@@ -76,33 +76,46 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <Card className="bg-[#1a1f2e] border-gray-800 w-full max-w-md">
+      <Card
+        className="w-full max-w-md"
+        style={{
+          backgroundColor: "var(--card-bg)",
+          borderColor: "var(--card-border)",
+          boxShadow: "var(--shadow-lg)",
+        }}
+      >
         <CardHeader>
-          <CardTitle className="text-2xl font-bold text-white">Edit Profile</CardTitle>
+          <CardTitle className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Edit Profile</CardTitle>
         </CardHeader>
 
         <CardContent className="space-y-4">
           {/* Name Input */}
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Name</label>
+            <label className="block text-sm mb-2" style={{ color: "var(--foreground-secondary)" }}>Name</label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="w-full bg-[#252b3b] border border-gray-700 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500"
+              className="w-full border rounded-lg px-4 py-2 focus:outline-none focus:border-blue-500"
+              style={{
+                backgroundColor: "var(--background)",
+                borderColor: "var(--card-border)",
+                color: "var(--foreground)",
+              }}
               placeholder="Enter your name"
             />
           </div>
 
           {/* Avatar Upload */}
           <div>
-            <label className="block text-sm text-gray-400 mb-2">Profile Picture</label>
+            <label className="block text-sm mb-2" style={{ color: "var(--foreground-secondary)" }}>Profile Picture</label>
             <div className="flex items-center gap-4">
               {preview && (
                 <img
                   src={preview}
                   alt="Preview"
-                  className="w-20 h-20 rounded-full object-cover border-2 border-gray-700"
+                  className="w-20 h-20 rounded-full object-cover border-2"
+                  style={{ borderColor: "var(--card-border)" }}
                 />
               )}
               <div className="flex-1">
@@ -117,11 +130,16 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   variant="outline"
-                  className="border-gray-700 bg-gray-900 hover:bg-gray-800 text-white w-full"
+                  className="w-full"
+                  style={{
+                    backgroundColor: "transparent",
+                    borderColor: "var(--card-border)",
+                    color: "var(--foreground)",
+                  }}
                 >
                   Choose File
                 </Button>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs mt-1" style={{ color: "var(--foreground-secondary)" }}>
                   JPG, PNG or GIF (max 5MB)
                 </p>
               </div>
@@ -130,7 +148,7 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 text-red-400 text-sm">
+            <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3 text-red-500 text-sm">
               {error}
             </div>
           )}
@@ -140,7 +158,8 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
             <Button
               onClick={handleSave}
               disabled={loading}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50"
+              className="flex-1 text-white disabled:opacity-50"
+              style={{ backgroundColor: "var(--color-primary)" }}
             >
               {loading ? 'Saving...' : 'Save'}
             </Button>
@@ -148,7 +167,12 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
               onClick={onClose}
               disabled={loading}
               variant="outline"
-              className="flex-1 border-gray-700 bg-gray-900 hover:bg-gray-800 text-white"
+              className="flex-1"
+              style={{
+                backgroundColor: "transparent",
+                borderColor: "var(--card-border)",
+                color: "var(--foreground)",
+              }}
             >
               Cancel
             </Button>
