@@ -3,29 +3,19 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
-
-interface Debate {
-  debate_id: string;
-  market_question: string;
-  market_category: string | null;
-  status: string;
-  rounds: number;
-  models_count: number;
-  total_tokens_used: number;
-  created_at: string;
-  completed_at: string | null;
-  is_favorite: boolean;
-}
+import { UserDebate } from "@/lib/api";
 
 interface DebateCardProps {
-  debate: Debate;
+  debate: UserDebate;
   onDelete: (id: string) => void;
   onView: (id: string) => void;
+  onToggleFavorite?: (marketId: string, debateId: string, isFavorite: boolean) => void;
   showActions?: boolean;
 }
 
-export function DebateCard({ debate, onDelete, onView, showActions = true }: DebateCardProps) {
+export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showActions = true }: DebateCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -47,22 +37,48 @@ export function DebateCard({ debate, onDelete, onView, showActions = true }: Deb
     }
   };
 
+  const handleFavoriteClick = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onToggleFavorite || isFavoriteLoading) return;
+
+    setIsFavoriteLoading(true);
+    try {
+      await onToggleFavorite(debate.market_id, debate.debate_id, debate.is_favorite);
+    } finally {
+      setIsFavoriteLoading(false);
+    }
+  };
+
   return (
-    <Card className="bg-gradient-to-br from-[#1a1f2e] to-[#252b3b] border-gray-800 hover:border-gray-700 transition-all">
+    <Card
+      className="transition-all hover:shadow-md"
+      style={{
+        backgroundColor: "var(--card-bg)",
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
       <CardContent className="p-4">
         <div className="flex items-start justify-between mb-2">
-          <h3 className="text-lg font-semibold text-white flex-1 line-clamp-2">
+          <h3 className="text-lg font-semibold flex-1 line-clamp-2" style={{ color: "var(--foreground)" }}>
             {debate.market_question}
           </h3>
           {showActions && (
             <div className="flex gap-2 ml-2">
-              {debate.is_favorite && (
-                <span className="text-red-500 text-lg">❤️</span>
-              )}
+              <button
+                onClick={handleFavoriteClick}
+                disabled={isFavoriteLoading}
+                className={`transition-colors text-lg ${debate.is_favorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
+                  } ${isFavoriteLoading ? 'opacity-50' : ''}`}
+                title={debate.is_favorite ? "Remove from favorites" : "Add to favorites"}
+              >
+                {debate.is_favorite ? '❤️' : '🤍'}
+              </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+                className="transition-colors disabled:opacity-50 hover:text-red-500"
+                style={{ color: "var(--foreground-secondary)" }}
                 title="Delete debate"
               >
                 🗑️
@@ -72,28 +88,41 @@ export function DebateCard({ debate, onDelete, onView, showActions = true }: Deb
         </div>
 
         {debate.market_category && (
-          <span className="inline-block px-2 py-1 text-xs bg-blue-500/20 text-blue-400 rounded mb-2">
+          <span
+            className="inline-block px-2 py-1 text-xs rounded mb-2"
+            style={{
+              backgroundColor: "rgba(37, 99, 235, 0.1)",
+              color: "var(--color-primary)"
+            }}
+          >
             {debate.market_category}
           </span>
         )}
 
-        <div className="text-sm text-gray-400 mb-3">
+        <div className="text-sm mb-3" style={{ color: "var(--foreground-secondary)" }}>
           {debate.rounds} rounds • {debate.models_count} models • {debate.total_tokens_used.toLocaleString()} tokens • {formatTimeAgo(debate.created_at)}
         </div>
 
         <div className="flex items-center justify-between">
-          <span className={`text-xs px-2 py-1 rounded ${
-            debate.status === 'completed' ? 'bg-green-500/20 text-green-400' :
-            debate.status === 'in_progress' ? 'bg-yellow-500/20 text-yellow-400' :
-            'bg-gray-500/20 text-gray-400'
-          }`}>
+          <span
+            className="text-xs px-2 py-1 rounded"
+            style={{
+              backgroundColor: debate.status === 'completed' ? "rgba(39, 174, 96, 0.1)" :
+                debate.status === 'in_progress' ? "rgba(249, 199, 79, 0.1)" :
+                  "rgba(107, 114, 128, 0.1)",
+              color: debate.status === 'completed' ? "var(--color-green)" :
+                debate.status === 'in_progress' ? "var(--color-sunny-yellow)" :
+                  "var(--foreground-secondary)"
+            }}
+          >
             {debate.status}
           </span>
 
           <Button
             onClick={() => onView(debate.debate_id)}
             variant="ghost"
-            className="text-blue-500 hover:text-blue-400 hover:bg-blue-500/10 text-sm h-8"
+            className="text-sm h-8 hover:bg-blue-500/10"
+            style={{ color: "var(--color-primary)" }}
           >
             View Debate →
           </Button>

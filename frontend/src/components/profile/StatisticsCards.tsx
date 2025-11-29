@@ -52,10 +52,20 @@ interface StatCardProps {
 
 function StatCard({ title, value, gradient, small = false }: StatCardProps) {
   return (
-    <Card className={`bg-gradient-to-br ${gradient} border-gray-800 hover:border-gray-700 transition-colors`}>
+    <Card
+      className="transition-colors"
+      style={{
+        backgroundColor: "var(--card-bg)",
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
       <CardContent className="p-6">
-        <h3 className="text-sm text-gray-400 mb-2">{title}</h3>
-        <p className={`${small ? 'text-2xl' : 'text-3xl'} font-bold text-white truncate`}>
+        <h3 className="text-sm mb-2" style={{ color: "var(--foreground-secondary)" }}>{title}</h3>
+        <p
+          className={`${small ? 'text-2xl' : 'text-3xl'} font-bold truncate`}
+          style={{ color: "var(--foreground)" }}
+        >
           {value}
         </p>
       </CardContent>

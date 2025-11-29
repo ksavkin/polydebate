@@ -3,19 +3,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DebateCard } from "./DebateCard";
-
-interface Debate {
-  debate_id: string;
-  market_question: string;
-  market_category: string | null;
-  status: string;
-  rounds: number;
-  models_count: number;
-  total_tokens_used: number;
-  created_at: string;
-  completed_at: string | null;
-  is_favorite: boolean;
-}
+import { UserDebate } from "@/lib/api";
 
 interface Pagination {
   total: number;
@@ -31,13 +19,14 @@ interface Filters {
 }
 
 interface DebateHistoryProps {
-  debates: Debate[];
+  debates: UserDebate[];
   pagination: Pagination;
   filters: Filters;
   onFilterChange: (filters: Filters) => void;
   onPageChange: (offset: number) => void;
   onDelete: (id: string) => void;
   onView: (id: string) => void;
+  onToggleFavorite: (marketId: string, debateId: string, isFavorite: boolean) => void;
   loading?: boolean;
 }
 
@@ -49,6 +38,7 @@ export function DebateHistory({
   onPageChange,
   onDelete,
   onView,
+  onToggleFavorite,
   loading = false
 }: DebateHistoryProps) {
   const categories = ['All', 'Politics', 'Sports', 'Crypto', 'Tech', 'Culture', 'Economy'];
@@ -76,9 +66,15 @@ export function DebateHistory({
   const totalPages = Math.ceil(pagination.total / pagination.limit);
 
   return (
-    <Card className="bg-gradient-to-br from-[#1a1f2e] to-[#252b3b] border-gray-800">
+    <Card
+      style={{
+        backgroundColor: "var(--card-bg)",
+        borderColor: "var(--card-border)",
+        boxShadow: "var(--shadow-sm)",
+      }}
+    >
       <CardHeader>
-        <CardTitle className="text-2xl font-bold text-white mb-4">
+        <CardTitle className="text-2xl font-bold mb-4" style={{ color: "var(--foreground)" }}>
           Debate History
         </CardTitle>
 
@@ -88,11 +84,15 @@ export function DebateHistory({
             <button
               key={category}
               onClick={() => handleCategoryClick(category)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                (category === 'All' && !filters.category) || filters.category === category
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
-              }`}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors`}
+              style={{
+                backgroundColor: (category === 'All' && !filters.category) || filters.category === category
+                  ? "var(--color-primary)"
+                  : "var(--card-bg-hover)",
+                color: (category === 'All' && !filters.category) || filters.category === category
+                  ? "#ffffff"
+                  : "var(--foreground-secondary)",
+              }}
             >
               {category}
             </button>
@@ -101,11 +101,16 @@ export function DebateHistory({
 
         {/* Sort Options */}
         <div className="flex gap-2 items-center">
-          <span className="text-sm text-gray-400">Sort by:</span>
+          <span className="text-sm" style={{ color: "var(--foreground-secondary)" }}>Sort by:</span>
           <select
             value={filters.sort}
             onChange={(e) => onFilterChange({ ...filters, sort: e.target.value })}
-            className="bg-gray-800 border border-gray-700 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-blue-500"
+            className="rounded-lg px-3 py-1.5 text-sm focus:outline-none border"
+            style={{
+              backgroundColor: "var(--card-bg-hover)",
+              borderColor: "var(--card-border)",
+              color: "var(--foreground)",
+            }}
           >
             <option value="recent">Most Recent</option>
             <option value="tokens">Most Tokens</option>
@@ -114,61 +119,87 @@ export function DebateHistory({
         </div>
       </CardHeader>
 
-      <CardContent>
-        {loading ? (
-          <div className="text-center text-gray-400 py-8">Loading debates...</div>
-        ) : debates.length === 0 ? (
-          <div className="text-center text-gray-400 py-8">
-            No debates found
-            {filters.category && ` in ${filters.category}`}
-          </div>
+      <CardContent className="min-h-[600px] relative">
+        {loading && debates.length === 0 ? (
+          <div className="text-center py-8" style={{ color: "var(--foreground-secondary)" }}>Loading debates...</div>
         ) : (
-          <>
-            {/* Debate Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
-              {debates.map((debate) => (
-                <DebateCard
-                  key={debate.debate_id}
-                  debate={debate}
-                  onDelete={onDelete}
-                  onView={onView}
-                />
-              ))}
-            </div>
-
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-gray-800 pt-4">
-                <div className="text-sm text-gray-400">
-                  Showing {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} debates
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    onClick={handlePrevPage}
-                    disabled={pagination.offset === 0}
-                    variant="outline"
-                    className="border-gray-700 hover:bg-gray-800 text-white disabled:opacity-50"
-                  >
-                    Previous
-                  </Button>
-
-                  <span className="text-sm text-gray-400 px-3">
-                    Page {currentPage} of {totalPages}
-                  </span>
-
-                  <Button
-                    onClick={handleNextPage}
-                    disabled={!pagination.has_more}
-                    variant="outline"
-                    className="border-gray-700 hover:bg-gray-800 text-white disabled:opacity-50"
-                  >
-                    Next
-                  </Button>
-                </div>
+          <div className={`transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : ''}`}>
+            {debates.length === 0 ? (
+              <div className="text-center py-8" style={{ color: "var(--foreground-secondary)" }}>
+                No debates found
+                {filters.category && ` in ${filters.category}`}
               </div>
+            ) : (
+              <>
+                {/* Debate Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
+                  {debates.map((debate) => (
+                    <DebateCard
+                      key={debate.debate_id}
+                      debate={debate}
+                      onDelete={onDelete}
+                      onView={onView}
+                      onToggleFavorite={onToggleFavorite}
+                    />
+                  ))}
+                </div>
+
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div
+                    className="flex items-center justify-between border-t pt-4"
+                    style={{ borderColor: "var(--card-border)" }}
+                  >
+                    <div className="text-sm" style={{ color: "var(--foreground-secondary)" }}>
+                      Showing {pagination.offset + 1} - {Math.min(pagination.offset + pagination.limit, pagination.total)} of {pagination.total} debates
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <Button
+                        onClick={handlePrevPage}
+                        disabled={pagination.offset === 0}
+                        variant="outline"
+                        className="disabled:opacity-50"
+                        style={{
+                          backgroundColor: "transparent",
+                          borderColor: "var(--card-border)",
+                          color: "var(--foreground)",
+                        }}
+                      >
+                        Previous
+                      </Button>
+
+                      <span className="text-sm px-3" style={{ color: "var(--foreground-secondary)" }}>
+                        Page {currentPage} of {totalPages}
+                      </span>
+
+                      <Button
+                        onClick={handleNextPage}
+                        disabled={!pagination.has_more}
+                        variant="outline"
+                        className="disabled:opacity-50"
+                        style={{
+                          backgroundColor: "transparent",
+                          borderColor: "var(--card-border)",
+                          color: "var(--foreground)",
+                        }}
+                      >
+                        Next
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
-          </>
+          </div>
+        )}
+        {loading && debates.length > 0 && (
+          <div className="absolute inset-0 flex items-center justify-center z-10">
+            <div className="bg-black/10 backdrop-blur-[1px] absolute inset-0 rounded-xl" />
+            <div className="relative bg-white/80 dark:bg-black/80 px-4 py-2 rounded-full shadow-lg text-sm font-medium">
+              Updating...
+            </div>
+          </div>
         )}
       </CardContent>
     </Card>

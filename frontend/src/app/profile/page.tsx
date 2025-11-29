@@ -145,24 +145,50 @@ export default function ProfilePage() {
     setPagination(prev => ({ ...prev, offset }));
   };
 
+  const handleToggleFavorite = async (marketId: string, debateId: string, isFavorite: boolean) => {
+    try {
+      if (isFavorite) {
+        // Remove by debateId
+        await apiClient.removeFavorite(debateId);
+      } else {
+        // Add with both IDs
+        await apiClient.addFavorite(marketId, debateId);
+      }
+
+      // Update local state for both lists
+      const updateDebateList = (list: any[]) =>
+        list.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d);
+
+      setDebates(prev => updateDebateList(prev));
+      setTopDebates(prev => updateDebateList(prev));
+
+      // Refresh statistics to update favorites count
+      const profile = await apiClient.getProfile();
+      setStatistics(profile.statistics);
+    } catch (err) {
+      console.error('Failed to toggle favorite:', err);
+      alert('Failed to update favorite status');
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading profile...</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-[var(--foreground)]">Loading profile...</div>
       </div>
     );
   }
 
   if (error || !user || !statistics) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
-        <div className="text-red-400 text-xl">{error || 'Failed to load profile'}</div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-red-500 text-xl">{error || 'Failed to load profile'}</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-gray-900 via-blue-900 to-gray-900">
+    <div className="min-h-screen bg-[var(--background)]">
       <div className="max-w-7xl mx-auto space-y-6 py-8 px-4">
         {/* Profile Header */}
         <ProfileHeader
@@ -184,6 +210,7 @@ export default function ProfilePage() {
           onTypeChange={setTopDebatesType}
           onDelete={handleDeleteDebate}
           onView={handleViewDebate}
+          onToggleFavorite={handleToggleFavorite}
           loading={topDebatesLoading}
         />
 
@@ -196,6 +223,7 @@ export default function ProfilePage() {
           onPageChange={handlePageChange}
           onDelete={handleDeleteDebate}
           onView={handleViewDebate}
+          onToggleFavorite={handleToggleFavorite}
           loading={debatesLoading}
         />
 

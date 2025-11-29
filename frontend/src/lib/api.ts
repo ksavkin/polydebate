@@ -359,6 +359,7 @@ export interface UpdateProfileResponse {
 
 export interface UserDebate {
   debate_id: string;
+  market_id: string;
   market_question: string;
   market_category: string | null;
   status: string;
@@ -457,11 +458,11 @@ class ApiClient {
     // Special categories use path-based endpoints: breaking, trending, new
     const pathBasedCategories = ['breaking', 'trending', 'new'];
     const usePathEndpoint = params?.category && pathBasedCategories.includes(params.category.toLowerCase());
-    
+
     if (usePathEndpoint) {
       // Use path-based endpoint: /api/markets/breaking, /api/markets/trending, etc.
       const queryParams = new URLSearchParams();
-      
+
       if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
       if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
       if (params?.closed !== undefined) queryParams.append('closed', params.closed.toString());
@@ -471,10 +472,10 @@ class ApiClient {
 
       return this.fetchJson<MarketsResponse>(endpoint);
     }
-    
+
     // Regular categories use query parameter
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.category) queryParams.append('category', params.category);
@@ -542,7 +543,7 @@ class ApiClient {
     // Use the main debate endpoint - it returns all debate data including messages
     // We need to fetch the full debate object which includes messages, final_summary, etc.
     const debate = await this.fetchJson<any>(`/api/debate/${debateId}`);
-    
+
     // Transform to DebateResults format
     // Note: summary and predictions will be added in Phase 5
     return {
@@ -587,7 +588,7 @@ class ApiClient {
     market_id?: string;
   }): Promise<DebatesResponse> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.status) queryParams.append('status', params.status);
@@ -605,7 +606,7 @@ class ApiClient {
     status?: 'all' | 'completed' | 'in_progress';
   }): Promise<{ market: { id: string; question: string; current_odds: Record<string, number> }; debates: DebateListItem[] }> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.status) queryParams.append('status', params.status);
@@ -704,15 +705,18 @@ class ApiClient {
     return this.fetchJson<FavoritesResponse>('/api/favorites');
   }
 
-  async addFavorite(marketId: string): Promise<AddFavoriteResponse> {
-    return this.fetchJson<AddFavoriteResponse>('/api/favorites', {
+  async addFavorite(marketId: string, debateId?: string): Promise<any> {
+    return this.fetchJson('/api/favorites', {
       method: 'POST',
-      body: JSON.stringify({ market_id: marketId }),
+      body: JSON.stringify({
+        market_id: marketId,
+        debate_id: debateId
+      }),
     });
   }
 
-  async removeFavorite(marketId: string): Promise<RemoveFavoriteResponse> {
-    return this.fetchJson<RemoveFavoriteResponse>(`/api/favorites/${marketId}`, {
+  async removeFavorite(resourceId: string): Promise<any> {
+    return this.fetchJson(`/api/favorites/${resourceId}`, {
       method: 'DELETE',
     });
   }
@@ -785,6 +789,8 @@ class ApiClient {
       method: 'DELETE',
     });
   }
+
+
 }
 
 export const apiClient = new ApiClient();

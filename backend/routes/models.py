@@ -12,16 +12,11 @@ models_bp = Blueprint('models', __name__)
 def get_models():
     """GET /api/models - Fetch available AI models"""
     try:
-        # Run async function in sync context
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            result = loop.run_until_complete(
-                openrouter_service.get_available_models(max_price_per_million=15.0)
-            )
-            return jsonify(result), 200
-        finally:
-            loop.close()
+        # Run async function in sync context using asyncio.run()
+        result = asyncio.run(
+            openrouter_service.get_available_models(max_price_per_million=15.0)
+        )
+        return jsonify(result), 200
 
     except Exception as e:
         return jsonify({

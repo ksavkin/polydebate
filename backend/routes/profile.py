@@ -288,8 +288,8 @@ def get_top_debates(current_user):
                 user_id=user_id
             ).all()
 
-            debate_ids = [f.debate_id for f in favorites]
-
+            debate_ids = [f.debate_id for f in favorites if f.debate_id]
+            
             if not debate_ids:
                 return jsonify({
                     'type': debate_type,
@@ -298,6 +298,7 @@ def get_top_debates(current_user):
 
             debates = db.query(DebateDB).filter(
                 DebateDB.debate_id.in_(debate_ids),
+                DebateDB.user_id == user_id,
                 DebateDB.is_deleted == False
             ).order_by(DebateDB.created_at.desc()).limit(limit).all()
 
