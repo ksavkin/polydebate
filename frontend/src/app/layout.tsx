@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import { SharedLayout } from "@/components/SharedLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
@@ -28,9 +29,11 @@ export default function RootLayout({
         <AuthProvider>
           <FavoritesProvider>
             <SearchProvider>
-              <SharedLayout>
-                {children}
-              </SharedLayout>
+              <Suspense fallback={<div>Loading...</div>}>
+                <SharedLayout>
+                  {children}
+                </SharedLayout>
+              </Suspense>
             </SearchProvider>
           </FavoritesProvider>
         </AuthProvider>
