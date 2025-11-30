@@ -67,6 +67,7 @@ interface NavigationProps {
   onCategoryChange: (category: string) => void;
   onSubtopicChange: (subtopic: string) => void;
   onSearchChange: (query: string) => void;
+  showBottomBar?: boolean; // Control whether to show categories and search bar
 }
 
 export function Navigation({
@@ -76,6 +77,7 @@ export function Navigation({
   onCategoryChange,
   onSubtopicChange,
   onSearchChange,
+  showBottomBar = true, // Default to true for backward compatibility
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -171,9 +173,25 @@ export function Navigation({
 
               {isAuthenticated ? (
                 <>
-                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/10">
-                    <span className="text-sm text-white/90">{user?.name || user?.email}</span>
-                  </div>
+                  <Link href="/profile">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      style={{
+                        color: "rgba(255, 255, 255, 0.9)",
+                        backgroundColor: "transparent",
+                      }}
+                      className="hover:bg-white/10 transition-colors duration-150"
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
+                      }}
+                    >
+                      {user?.name || user?.email}
+                    </Button>
+                  </Link>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -260,10 +278,11 @@ export function Navigation({
         </div>
       </div>
 
-      {/* Bottom Row - Tabs & Topics */}
-      <div 
+      {/* Bottom Row - Tabs & Topics (conditionally shown) */}
+      {showBottomBar && (
+      <div
         className="border-t relative"
-        style={{ 
+        style={{
           backgroundColor: "var(--nav-bg-extension)",
           borderColor: "rgba(255, 255, 255, 0.1)",
           zIndex: 1,
@@ -551,9 +570,10 @@ export function Navigation({
               })}
             </div>
           </div>
-          )}
+        )}
         </div>
       </div>
+      )}
     </nav>
   );
 }

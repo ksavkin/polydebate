@@ -23,10 +23,17 @@ export function SharedLayout({ children }: SharedLayoutProps) {
   
   // Check if we're on login or signup pages
   const isAuthPage = pathname === "/login" || pathname === "/signup";
-  
+
+  // Check if we're on profile page (needs full-width dark background)
+  const isProfilePage = pathname === "/profile";
+
+  // Check if we should show the bottom navigation bar (categories and search)
+  // Hide on profile page and debate view pages
+  const shouldShowBottomBar = !isProfilePage && !pathname.startsWith("/debate/");
+
   // Get search query from URL params
   const urlSearchQuery = searchParams.get("q") || "";
-  
+
   // Sync context state with URL on mount and when URL changes (e.g., browser back/forward)
   useEffect(() => {
     if (urlSearchQuery !== searchQuery) {
@@ -90,10 +97,11 @@ export function SharedLayout({ children }: SharedLayoutProps) {
       className="min-h-screen"
       style={{ backgroundColor: "var(--background)" }}
     >
-      <Navigation 
+      <Navigation
         activeCategory={activeCategory}
         activeSubtopic={activeSubtopic}
         searchQuery={searchQuery}
+        showBottomBar={shouldShowBottomBar}
         onCategoryChange={(category) => {
           // Navigation will handle routing via Link components
           setActiveCategory(category);
@@ -125,19 +133,21 @@ export function SharedLayout({ children }: SharedLayoutProps) {
         }}
       />
 
-      <main className="container mx-auto px-4 py-6 pb-24">
+      <main className={isProfilePage ? "" : "container mx-auto px-4 py-6 pb-24"}>
         {children}
       </main>
 
-      {/* Footer - appears/disappears based on scroll */}
-      <div
-        className={cn(
-          "fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300",
-          showFooter ? "translate-y-0" : "translate-y-full"
-        )}
-      >
-        <Footer />
-      </div>
+      {/* Footer - appears/disappears based on scroll (hide on profile page) */}
+      {!isProfilePage && (
+        <div
+          className={cn(
+            "fixed bottom-0 left-0 right-0 z-40 transition-transform duration-300",
+            showFooter ? "translate-y-0" : "translate-y-full"
+          )}
+        >
+          <Footer />
+        </div>
+      )}
     </div>
   );
 }

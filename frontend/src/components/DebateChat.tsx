@@ -46,16 +46,18 @@ export function DebateChat({
   const hasCompletedRef = useRef(false);
   const messagesRef = useRef(messages);
   const initializedRef = useRef(false);
+  const isMountedRef = useRef(true);
   const [playingMessageId, setPlayingMessageId] = useState<string | null>(null);
   const [playedIds, setPlayedIds] = useState<Set<string>>(new Set());
   const previousPredictionsRef = useRef<Map<string, Record<string, number>>>(new Map());
   const [visibleMessageIds, setVisibleMessageIds] = useState<Set<string>>(new Set());
-  
+  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
+
   // Keep messagesRef in sync with messages prop
   useEffect(() => {
     messagesRef.current = messages;
   }, [messages]);
-  
+
   // If debate is completed, immediately mark all messages as visible and played
   // This handles the case where the component remounts when status changes to 'completed'
   useEffect(() => {
@@ -66,7 +68,7 @@ export function DebateChat({
         const messageId = `${msg.model_id}-${msg.round}-${idx}`;
         allMessageIds.add(messageId);
       });
-      
+
       console.log('Debate completed - marking all messages as visible and played');
       setVisibleMessageIds(allMessageIds);
       setPlayedIds(allMessageIds);
@@ -79,7 +81,7 @@ export function DebateChat({
 
   const speakingModelId = useMemo(() => {
     if (!playingMessageId) return null;
-    
+
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       const messageId = `${msg.model_id}-${msg.round}-${i}`;
@@ -87,7 +89,7 @@ export function DebateChat({
         return msg.model_id;
       }
     }
-    
+
     return null;
   }, [playingMessageId, messages]);
 
@@ -99,11 +101,27 @@ export function DebateChat({
     });
   }, [visibleMessageIds.size]);
 
+  // Cleanup audio on unmount
   useEffect(() => {
+    isMountedRef.current = true;
+
     return () => {
+      isMountedRef.current = false;
+
+      // Immediately stop any playing audio
       if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.removeEventListener("ended", () => {});
+        try {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+          audioRef.current.src = ''; // Clear the source to stop loading
+          audioRef.current.load(); // Force reload to clear buffered data
+          // Remove all event listeners
+          audioRef.current.onended = null;
+          audioRef.current.onerror = null;
+        } catch (err) {
+          // Ignore errors during cleanup
+          console.log('Audio cleanup error (expected):', err);
+        }
         audioRef.current = null;
       }
       setPlayingMessageId(null);
@@ -122,13 +140,13 @@ export function DebateChat({
       hasCompleted: hasCompletedRef.current,
       debateCompleteEventReceived
     });
-    
+
     // Stop processing if debate is truly completed (all messages played and shown)
     if (hasCompletedRef.current) {
       console.log('Debate truly completed, skipping audio processing');
       return;
     }
-    
+
     if (playingMessageId !== null) {
       console.log('Already playing audio, skipping');
       return; // Already playing audio, wait for it to finish
@@ -138,7 +156,7 @@ export function DebateChat({
     for (let i = 0; i < messages.length; i++) {
       const msg = messages[i];
       const messageId = `${msg.model_id}-${msg.round}-${i}`;
-      
+
       console.log(`Checking message ${i}:`, {
         messageId,
         hasAudio: !!msg.audio_url,
@@ -146,7 +164,7 @@ export function DebateChat({
         alreadyPlayed: playedIds.has(messageId),
         alreadyVisible: visibleMessageIds.has(messageId)
       });
-      
+
       // Skip if already played
       if (playedIds.has(messageId)) {
         console.log(`Message ${i} already played, skipping`);
@@ -168,7 +186,7 @@ export function DebateChat({
       for (let j = 0; j < i; j++) {
         const prevMsg = messages[j];
         const prevMessageId = `${prevMsg.model_id}-${prevMsg.round}-${j}`;
-        
+
         // Previous message must be fully played (not just visible)
         // If a previous message is visible but not played, it's still being processed
         if (!playedIds.has(prevMessageId)) {
@@ -190,46 +208,61 @@ export function DebateChat({
         console.log(`Message ${i} - not all previous messages played, breaking`);
         break;
       }
-      
+
       console.log(`Processing message ${i} - making visible and playing audio if available`);
-      
+
       // Make message visible
       setVisibleMessageIds((prev) => new Set([...prev, messageId]));
-      
+
       // If message has audio, play it
       if (msg.audio_url) {
         console.log(`Message ${i} has audio, starting playback`);
         // Capture the current message index to check if it's the last one
         const currentMessageIndex = i;
         const totalMessagesCount = messages.length;
-        
+
         // Set playingMessageId immediately to prevent the effect from running again
         setPlayingMessageId(messageId);
-        
+
         // Add a small delay before loading audio to prevent rate limiting
         // This gives the server time between requests
         setTimeout(() => {
           // Convert relative URL to absolute if needed
-          const audioUrl = msg.audio_url?.startsWith('http') 
-            ? msg.audio_url 
+          const audioUrl = msg.audio_url?.startsWith('http')
+            ? msg.audio_url
             : `${API_BASE_URL}${msg.audio_url}`;
-          
+
           console.log('Loading audio for message:', messageId, 'URL:', audioUrl);
+
+          // Check if component is still mounted before creating audio
+          if (!isMountedRef.current) {
+            console.log('Component unmounted, skipping audio creation');
+            return;
+          }
+
           const audio = new Audio(audioUrl);
           audioRef.current = audio;
-          
+
           // Add error handler for audio loading
           audio.addEventListener('error', (e) => {
-            console.error('Audio loading error:', e, audioUrl);
+            // Only log errors if component is still mounted
+            if (isMountedRef.current) {
+              console.error('Audio loading error:', e, audioUrl);
+            }
           });
 
           const handleEnded = () => {
+            // Check if component is still mounted before updating state
+            if (!isMountedRef.current) {
+              return;
+            }
+
             setPlayedIds((prev) => new Set([...prev, messageId]));
             setPlayingMessageId(null);
             if (audioRef.current === audio) {
               audioRef.current = null;
             }
-            
+
             // Check if this was the last message and debate_complete was received
             if (debateCompleteEventReceived) {
               // Use a ref to check the current messages array when audio ends
@@ -240,7 +273,7 @@ export function DebateChat({
                   return msgId === messageId;
                 });
                 const isLastMessage = currentIndex === currentMessages.length - 1;
-                
+
                 if (isLastMessage && !hasCompletedRef.current) {
                   hasCompletedRef.current = true;
                   const allMessageIds = new Set<string>();
@@ -267,15 +300,28 @@ export function DebateChat({
 
           // Add a small delay before playing to further prevent rate limiting
           setTimeout(() => {
+            // Check if component is still mounted before playing
+            if (!isMountedRef.current) {
+              console.log('Component unmounted, skipping audio playback');
+              return;
+            }
+
             console.log('Attempting to play audio for message:', messageId);
             audio.play().then(() => {
-              console.log('Audio playing successfully for message:', messageId);
+              if (isMountedRef.current) {
+                console.log('Audio playing successfully for message:', messageId);
+                // If audio plays successfully, clear autoplay blocked state
+                setAutoplayBlocked(false);
+              }
             }).catch((err) => {
-              // Log all errors for debugging
-              console.error("Error playing audio:", err, 'URL:', audioUrl);
-              // Silently handle autoplay errors (browser restrictions)
-              if (err.name !== 'NotAllowedError' && err.name !== 'AbortError') {
-                console.error("Non-autoplay error playing audio:", err);
+              // Only log errors if component is still mounted
+              if (isMountedRef.current) {
+                if (err.name === 'NotAllowedError') {
+                  console.log("Autoplay blocked by browser, showing enable button");
+                  setAutoplayBlocked(true);
+                } else if (err.name !== 'AbortError') {
+                  console.error("Error playing audio:", err, 'URL:', audioUrl);
+                }
               }
               // If audio fails, wait a bit before marking as played to maintain sequence
               // This prevents messages from appearing too quickly if multiple audio files fail
@@ -285,7 +331,7 @@ export function DebateChat({
                 if (audioRef.current === audio) {
                   audioRef.current = null;
                 }
-                
+
                 // Check if this was the last message and debate_complete was received
                 if (debateCompleteEventReceived) {
                   setTimeout(() => {
@@ -295,7 +341,7 @@ export function DebateChat({
                       return msgId === messageId;
                     });
                     const isLastMessage = currentIndex === currentMessages.length - 1;
-                    
+
                     if (isLastMessage && !hasCompletedRef.current) {
                       hasCompletedRef.current = true;
                       const allMessageIds = new Set<string>();
@@ -328,7 +374,7 @@ export function DebateChat({
         const currentMessageIndex = i;
         setTimeout(() => {
           setPlayedIds((prev) => new Set([...prev, messageId]));
-          
+
           // Check if this was the last message and debate_complete was received
           if (debateCompleteEventReceived) {
             setTimeout(() => {
@@ -338,7 +384,7 @@ export function DebateChat({
                 return msgId === messageId;
               });
               const isLastMessage = currentIndex === currentMessages.length - 1;
-              
+
               if (isLastMessage && !hasCompletedRef.current) {
                 hasCompletedRef.current = true;
                 const allMessageIds = new Set<string>();
@@ -442,7 +488,7 @@ export function DebateChat({
     >
       <div
         className="px-6 py-4 flex-shrink-0 flex items-center justify-between"
-        style={{ 
+        style={{
           borderBottom: "1px solid var(--card-border)",
         }}
       >
@@ -455,6 +501,25 @@ export function DebateChat({
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {autoplayBlocked && !isCompleted && (
+            <button
+              onClick={() => {
+                // Play a silent sound to unlock audio context
+                const audio = new Audio();
+                // Just creating it and trying to play might be enough if triggered by user
+                // Or we can try to resume the current audio if we had access to it, 
+                // but for now just clearing the flag allows the next attempt to work
+                setAutoplayBlocked(false);
+              }}
+              className="mr-2 px-3 py-1.5 bg-blue-500 hover:bg-blue-600 text-white text-xs font-medium rounded-full transition-colors flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+              </svg>
+              Enable Audio
+            </button>
+          )}
           {isCompleted ? (
             <>
               <div className="w-2 h-2 rounded-full bg-blue-500" />
@@ -473,12 +538,12 @@ export function DebateChat({
         </div>
       </div>
 
-      <div 
+      <div
         className="px-6 pt-4 pb-2 flex-shrink-0"
         style={{ backgroundColor: "transparent" }}
       >
-        <ModelOrbsRow 
-          models={selectedModels} 
+        <ModelOrbsRow
+          models={selectedModels}
           activeModelId={activeModelId}
           speakingModelId={speakingModelId}
         />
@@ -487,7 +552,7 @@ export function DebateChat({
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto overflow-x-hidden px-6 pb-4"
-        style={{ 
+        style={{
           minHeight: 0,
         }}
       >
@@ -507,13 +572,13 @@ export function DebateChat({
           .sort(([a], [b]) => Number(a) - Number(b))
           .map(([round, roundMessages], roundIndex) => {
             const roundNum = Number(round);
-            
+
             // Check if all messages in this round have been played
             const allRoundMessagesPlayed = roundMessages.every(({ msg, globalIndex }) => {
               const messageId = `${msg.model_id}-${msg.round}-${globalIndex}`;
               return playedIds.has(messageId);
             });
-            
+
             // If debate is completed, all rounds are completed (show red)
             // Otherwise, show green for current round (only if not all messages played), red for completed rounds, muted for future
             const isActiveRound = !isCompleted && roundNum === currentRound && !allRoundMessagesPlayed;
@@ -521,169 +586,169 @@ export function DebateChat({
             const isFutureRound = !isCompleted && roundNum > currentRound;
             const messageType = roundMessages[0]?.msg.message_type || '';
             const messageTypeLabel = messageType.charAt(0).toUpperCase() + messageType.slice(1);
-            
+
             return (
-            <div key={round} className="mb-6">
-              <div className="relative my-6">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }}></div>
-                </div>
-                <div className="relative flex justify-center items-center gap-2">
-                  <div 
-                    className={`w-2 h-2 rounded-full ${isActiveRound ? 'animate-pulse' : ''}`}
-                    style={{
-                      backgroundColor: isActiveRound 
-                        ? '#10b981' // green
-                        : isCompletedRound 
-                        ? 'rgba(239, 68, 68, 0.5)' // muted red
-                        : 'transparent'
-                    }}
-                  />
-                  <span 
-                    className="px-3 text-xs font-medium text-[var(--foreground-secondary)]" 
-                    style={{ backgroundColor: "transparent" }}
-                  >
-                    Round {round} {messageType && `(${messageTypeLabel})`}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {roundMessages.map(({ msg, globalIndex }) => {
-                  const messageId = `${msg.model_id}-${msg.round}-${globalIndex}`;
-                  const isPlaying = playingMessageId === messageId;
-                  const isVisible = visibleMessageIds.has(messageId);
-                  
-                  return (
-                    <motion.div
-                      key={messageId}
-                      className="w-full rounded-lg px-4 py-3"
+              <div key={round} className="mb-6">
+                <div className="relative my-6">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t" style={{ borderColor: "var(--card-border)" }}></div>
+                  </div>
+                  <div className="relative flex justify-center items-center gap-2">
+                    <div
+                      className={`w-2 h-2 rounded-full ${isActiveRound ? 'animate-pulse' : ''}`}
                       style={{
-                        backgroundColor: "var(--card-bg)",
+                        backgroundColor: isActiveRound
+                          ? '#10b981' // green
+                          : isCompletedRound
+                            ? 'rgba(239, 68, 68, 0.5)' // muted red
+                            : 'transparent'
                       }}
-                      initial={{ opacity: 0, y: 10, scale: 0.97 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      transition={{ duration: 0.32, ease: "easeOut" }}
+                    />
+                    <span
+                      className="px-3 text-xs font-medium text-[var(--foreground-secondary)]"
+                      style={{ backgroundColor: "transparent" }}
                     >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold text-[var(--foreground)]">
-                          {msg.model_name}
-                        </span>
-                        {isPlaying && (
-                          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                        )}
-                      </div>
+                      Round {round} {messageType && `(${messageTypeLabel})`}
+                    </span>
+                  </div>
+                </div>
 
-                      <BlurText
-                        text={msg.text}
-                        animateBy="words"
-                        delay={35}
-                        stepDuration={0.32}
-                        direction="top"
-                        className="text-sm leading-relaxed text-[var(--foreground)]"
-                        threshold={0}
-                        animationFrom={{
-                          filter: "blur(12px)",
-                          opacity: 0,
-                          scale: 0.95,
+                <div className="space-y-3">
+                  {roundMessages.map(({ msg, globalIndex }) => {
+                    const messageId = `${msg.model_id}-${msg.round}-${globalIndex}`;
+                    const isPlaying = playingMessageId === messageId;
+                    const isVisible = visibleMessageIds.has(messageId);
+
+                    return (
+                      <motion.div
+                        key={messageId}
+                        className="w-full rounded-lg px-4 py-3"
+                        style={{
+                          backgroundColor: "var(--card-bg)",
                         }}
-                        animationTo={[
-                          {
-                            filter: "blur(3px)",
-                            opacity: 0.7,
-                            scale: 1.03,
-                          },
-                          {
-                            filter: "blur(0px)",
-                            opacity: 1,
-                            scale: 1,
-                          },
-                        ]}
-                      />
+                        initial={{ opacity: 0, y: 10, scale: 0.97 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        transition={{ duration: 0.32, ease: "easeOut" }}
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-xs font-semibold text-[var(--foreground)]">
+                            {msg.model_name}
+                          </span>
+                          {isPlaying && (
+                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+                          )}
+                        </div>
 
-                      {msg.predictions &&
-                        Object.keys(msg.predictions).length > 0 && (
-                          <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
-                            {Object.entries(msg.predictions).map(
-                              ([outcome, pct], predIndex) => {
-                                // Track previous predictions per model (across rounds)
-                                const modelKey = msg.model_id;
-                                const previousPreds = previousPredictionsRef.current.get(modelKey) || {};
-                                const previousPct = previousPreds[outcome];
-                                const change = previousPct !== undefined ? pct - previousPct : 0;
-                                
-                                // Update previous predictions for this model
-                                if (!previousPredictionsRef.current.has(modelKey)) {
-                                  previousPredictionsRef.current.set(modelKey, {});
-                                }
-                                previousPredictionsRef.current.get(modelKey)![outcome] = pct;
-                                
-                                // Determine color based on change (only if there was a previous value)
-                                let textColor = "var(--foreground)"; // More prominent default color
-                                if (previousPct !== undefined) {
-                                  if (change > 0) {
-                                    textColor = "#27ae60"; // green for positive (design.md accent green)
-                                  } else if (change < 0) {
-                                    textColor = "#e74c3c"; // red for negative
+                        <BlurText
+                          text={msg.text}
+                          animateBy="words"
+                          delay={35}
+                          stepDuration={0.32}
+                          direction="top"
+                          className="text-sm leading-relaxed text-[var(--foreground)]"
+                          threshold={0}
+                          animationFrom={{
+                            filter: "blur(12px)",
+                            opacity: 0,
+                            scale: 0.95,
+                          }}
+                          animationTo={[
+                            {
+                              filter: "blur(3px)",
+                              opacity: 0.7,
+                              scale: 1.03,
+                            },
+                            {
+                              filter: "blur(0px)",
+                              opacity: 1,
+                              scale: 1,
+                            },
+                          ]}
+                        />
+
+                        {msg.predictions &&
+                          Object.keys(msg.predictions).length > 0 && (
+                            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-sm">
+                              {Object.entries(msg.predictions).map(
+                                ([outcome, pct], predIndex) => {
+                                  // Track previous predictions per model (across rounds)
+                                  const modelKey = msg.model_id;
+                                  const previousPreds = previousPredictionsRef.current.get(modelKey) || {};
+                                  const previousPct = previousPreds[outcome];
+                                  const change = previousPct !== undefined ? pct - previousPct : 0;
+
+                                  // Update previous predictions for this model
+                                  if (!previousPredictionsRef.current.has(modelKey)) {
+                                    previousPredictionsRef.current.set(modelKey, {});
                                   }
+                                  previousPredictionsRef.current.get(modelKey)![outcome] = pct;
+
+                                  // Determine color based on change (only if there was a previous value)
+                                  let textColor = "var(--foreground)"; // More prominent default color
+                                  if (previousPct !== undefined) {
+                                    if (change > 0) {
+                                      textColor = "#27ae60"; // green for positive (design.md accent green)
+                                    } else if (change < 0) {
+                                      textColor = "#e74c3c"; // red for negative
+                                    }
+                                  }
+
+                                  // Animate numbers slowly, similar to BlurText but slower
+                                  // Each prediction animates with a delay based on its index
+                                  const animationDelay = predIndex * 150; // 150ms delay between each prediction
+
+                                  return (
+                                    <div
+                                      key={outcome}
+                                      className="inline-flex items-baseline gap-1.5"
+                                    >
+                                      <span
+                                        style={{
+                                          color: "var(--foreground-secondary)",
+                                          fontSize: '13px',
+                                        }}
+                                      >
+                                        {outcome}:
+                                      </span>
+                                      <motion.span
+                                        className="font-semibold tabular-nums"
+                                        style={{
+                                          color: textColor,
+                                          fontSize: '14px',
+                                        }}
+                                        initial={{
+                                          filter: "blur(12px)",
+                                          opacity: 0,
+                                          scale: 0.95,
+                                        }}
+                                        animate={isVisible ? {
+                                          filter: "blur(0px)",
+                                          opacity: 1,
+                                          scale: 1,
+                                        } : {
+                                          filter: "blur(12px)",
+                                          opacity: 0,
+                                          scale: 0.95,
+                                        }}
+                                        transition={{
+                                          duration: 0.8, // Slower than text animation (0.32s)
+                                          delay: animationDelay / 1000, // Convert ms to seconds
+                                          ease: "easeOut"
+                                        }}
+                                      >
+                                        {pct}%
+                                      </motion.span>
+                                    </div>
+                                  );
                                 }
-                                
-                                // Animate numbers slowly, similar to BlurText but slower
-                                // Each prediction animates with a delay based on its index
-                                const animationDelay = predIndex * 150; // 150ms delay between each prediction
-                                
-                                return (
-                                  <div
-                                    key={outcome}
-                                    className="inline-flex items-baseline gap-1.5"
-                                  >
-                                    <span 
-                                      style={{ 
-                                        color: "var(--foreground-secondary)",
-                                        fontSize: '13px',
-                                      }}
-                                    >
-                                      {outcome}:
-                                    </span>
-                                    <motion.span
-                                      className="font-semibold tabular-nums"
-                                      style={{ 
-                                        color: textColor,
-                                        fontSize: '14px',
-                                      }}
-                                      initial={{ 
-                                        filter: "blur(12px)",
-                                        opacity: 0,
-                                        scale: 0.95,
-                                      }}
-                                      animate={isVisible ? { 
-                                        filter: "blur(0px)",
-                                        opacity: 1,
-                                        scale: 1,
-                                      } : {
-                                        filter: "blur(12px)",
-                                        opacity: 0,
-                                        scale: 0.95,
-                                      }}
-                                      transition={{ 
-                                        duration: 0.8, // Slower than text animation (0.32s)
-                                        delay: animationDelay / 1000, // Convert ms to seconds
-                                        ease: "easeOut"
-                                      }}
-                                    >
-                                      {pct}%
-                                    </motion.span>
-                                  </div>
-                                );
-                              }
-                            )}
-                          </div>
-                        )}
-                    </motion.div>
-                  );
-                })}
+                              )}
+                            </div>
+                          )}
+                      </motion.div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
             );
           })}
       </div>

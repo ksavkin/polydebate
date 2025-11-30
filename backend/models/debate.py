@@ -37,6 +37,8 @@ class Debate:
     selected_models: List[DebateModel]
     rounds: int
     current_round: int
+    market_category: Optional[str] = None
+    user_id: Optional[int] = None
     messages: List[Message] = field(default_factory=list)
     final_summary: Optional[Dict] = None
     final_predictions: Optional[Dict] = None
@@ -48,7 +50,8 @@ class Debate:
     def create(
         market: Dict,
         models: List[Dict],
-        rounds: int
+        rounds: int,
+        user_id: Optional[int] = None
     ) -> 'Debate':
         """Create a new debate"""
         # Convert outcomes prices to percentages
@@ -62,6 +65,7 @@ class Debate:
             market_id=market['id'],
             market_question=market['question'],
             market_description=market.get('description', ''),
+            market_category=market.get('category'),  # Add market category
             outcomes=market['outcomes'],
             polymarket_odds=polymarket_odds,
             selected_models=[
@@ -72,7 +76,8 @@ class Debate:
                 ) for m in models
             ],
             rounds=rounds,
-            current_round=0
+            current_round=0,
+            user_id=user_id
         )
 
         return debate
@@ -132,13 +137,15 @@ class Debate:
                     market_id=self.market_id,
                     market_question=self.market_question,
                     market_description=self.market_description,
+                    market_category=self.market_category,
                     polymarket_odds=self.polymarket_odds,
                     rounds=self.rounds,
                     current_round=self.current_round,
                     final_summary=self.final_summary,
                     final_predictions=self.final_predictions,
                     created_at=self.created_at,
-                    completed_at=self.completed_at
+                    completed_at=self.completed_at,
+                    user_id=self.user_id
                 )
                 db.add(debate_db)
 
@@ -281,11 +288,13 @@ class Debate:
                 market_id=debate_db.market_id,
                 market_question=debate_db.market_question,
                 market_description=debate_db.market_description,
+                market_category=debate_db.market_category,
                 outcomes=outcomes,
                 polymarket_odds=debate_db.polymarket_odds or {},
                 selected_models=selected_models,
                 rounds=debate_db.rounds,
                 current_round=debate_db.current_round,
+                user_id=debate_db.user_id,
                 messages=messages,
                 final_summary=debate_db.final_summary,
                 final_predictions=debate_db.final_predictions,

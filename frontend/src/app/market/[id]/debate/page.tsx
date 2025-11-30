@@ -42,6 +42,8 @@ export default function DebatePage() {
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const debateIdRef = useRef<string | null>(null);
+  const statusRef = useRef<DebateStatus>('setup');
 
   // Fetch market details and available models
   useEffect(() => {
@@ -114,14 +116,48 @@ export default function DebatePage() {
     }
   }, [marketId]);
 
-  // Cleanup event source on unmount
+  // Keep refs in sync with current state
+  useEffect(() => {
+    debateIdRef.current = debateId;
+    statusRef.current = status;
+  }, [debateId, status]);
+
+  // Cleanup event source and stop debate on unmount ONLY
   useEffect(() => {
     return () => {
+      // Close event source
       if (eventSourceRef.current) {
         eventSourceRef.current.close();
         eventSourceRef.current = null;
       }
+
+      // Stop the debate on the backend if it's in progress
+      // Use refs to get current values at cleanup time
+      const currentDebateId = debateIdRef.current;
+      const currentStatus = statusRef.current;
+
+      if (currentDebateId && (currentStatus === 'streaming' || currentStatus === 'starting')) {
+        // Use navigator.sendBeacon for reliable cleanup on page unload
+        // This works even when the user navigates away quickly
+        const stopUrl = `${apiClient['baseUrl']}/api/debate/${currentDebateId}/stop`;
+        const token = typeof window !== 'undefined' ? localStorage.getItem('auth_token') : null;
+
+        if (token) {
+          // Try fetch with keepalive (more reliable than sendBeacon for authenticated requests)
+          fetch(stopUrl, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json',
+            },
+            keepalive: true, // Allows request to continue even after page unload
+          }).catch(err => {
+            console.log('Could not stop debate on unmount:', err);
+          });
+        }
+      }
     };
+  // Empty deps array - only run cleanup on actual unmount, not on re-renders
   }, []);
 
   // Auto-scroll messages

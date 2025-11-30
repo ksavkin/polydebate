@@ -330,6 +330,61 @@ export interface CheckFavoriteResponse {
   };
 }
 
+// Profile Types
+export interface ProfileUser {
+  id: string;
+  email: string;
+  name: string;
+  avatar_url: string | null;
+  tokens_remaining: number;
+  total_debates: number;
+  created_at: string;
+}
+
+export interface ProfileStatistics {
+  total_debates: number;
+  total_favorites: number;
+  favorite_models: Array<{ model_id: string; model_name: string; usage_count: number }>;
+  favorite_categories: Array<{ category: string; count: number }>;
+}
+
+export interface ProfileResponse {
+  user: ProfileUser;
+  statistics: ProfileStatistics;
+}
+
+export interface UpdateProfileResponse {
+  user: ProfileUser;
+}
+
+export interface UserDebate {
+  debate_id: string;
+  market_id: string;
+  market_question: string;
+  market_category: string | null;
+  status: string;
+  rounds: number;
+  models_count: number;
+  total_tokens_used: number;
+  created_at: string;
+  completed_at: string | null;
+  is_favorite: boolean;
+}
+
+export interface UserDebatesResponse {
+  debates: UserDebate[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    has_more: boolean;
+  };
+}
+
+export interface TopDebatesResponse {
+  debates: UserDebate[];
+}
+
 class ApiClient {
   private baseUrl: string;
 
@@ -360,6 +415,18 @@ class ApiClient {
 
       if (!response.ok) {
         const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+
+        // Handle authentication errors
+        if (response.status === 401 || error.error?.message?.includes('Invalid or expired token')) {
+          // Clear invalid token
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('auth_token');
+            // Redirect to login page
+            window.location.href = '/login';
+          }
+          throw new Error('Session expired. Please log in again.');
+        }
+
         throw new Error(error.error?.message || `HTTP error! status: ${response.status}`);
       }
 
@@ -391,11 +458,11 @@ class ApiClient {
     // Special categories use path-based endpoints: breaking, trending, new
     const pathBasedCategories = ['breaking', 'trending', 'new'];
     const usePathEndpoint = params?.category && pathBasedCategories.includes(params.category.toLowerCase());
-    
+
     if (usePathEndpoint) {
       // Use path-based endpoint: /api/markets/breaking, /api/markets/trending, etc.
       const queryParams = new URLSearchParams();
-      
+
       if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
       if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
       if (params?.closed !== undefined) queryParams.append('closed', params.closed.toString());
@@ -405,10 +472,10 @@ class ApiClient {
 
       return this.fetchJson<MarketsResponse>(endpoint);
     }
-    
+
     // Regular categories use query parameter
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.category) queryParams.append('category', params.category);
@@ -476,7 +543,7 @@ class ApiClient {
     // Use the main debate endpoint - it returns all debate data including messages
     // We need to fetch the full debate object which includes messages, final_summary, etc.
     const debate = await this.fetchJson<any>(`/api/debate/${debateId}`);
-    
+
     // Transform to DebateResults format
     // Note: summary and predictions will be added in Phase 5
     return {
@@ -521,7 +588,7 @@ class ApiClient {
     market_id?: string;
   }): Promise<DebatesResponse> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.status) queryParams.append('status', params.status);
@@ -539,7 +606,7 @@ class ApiClient {
     status?: 'all' | 'completed' | 'in_progress';
   }): Promise<{ market: { id: string; question: string; current_odds: Record<string, number> }; debates: DebateListItem[] }> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
     if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
     if (params?.status) queryParams.append('status', params.status);
@@ -638,15 +705,18 @@ class ApiClient {
     return this.fetchJson<FavoritesResponse>('/api/favorites');
   }
 
-  async addFavorite(marketId: string): Promise<AddFavoriteResponse> {
-    return this.fetchJson<AddFavoriteResponse>('/api/favorites', {
+  async addFavorite(marketId: string, debateId?: string): Promise<any> {
+    return this.fetchJson('/api/favorites', {
       method: 'POST',
-      body: JSON.stringify({ market_id: marketId }),
+      body: JSON.stringify({
+        market_id: marketId,
+        debate_id: debateId
+      }),
     });
   }
 
-  async removeFavorite(marketId: string): Promise<RemoveFavoriteResponse> {
-    return this.fetchJson<RemoveFavoriteResponse>(`/api/favorites/${marketId}`, {
+  async removeFavorite(resourceId: string): Promise<any> {
+    return this.fetchJson(`/api/favorites/${resourceId}`, {
       method: 'DELETE',
     });
   }
@@ -654,6 +724,73 @@ class ApiClient {
   async checkFavorite(marketId: string): Promise<CheckFavoriteResponse> {
     return this.fetchJson<CheckFavoriteResponse>(`/api/favorites/check/${marketId}`);
   }
+
+  // Profile endpoints
+  async getProfile(): Promise<ProfileResponse> {
+    return this.fetchJson<ProfileResponse>('/api/auth/profile');
+  }
+
+  async updateProfile(name: string, avatar: File | null): Promise<UpdateProfileResponse> {
+    const formData = new FormData();
+    formData.append('name', name);
+    if (avatar) {
+      formData.append('avatar', avatar);
+    }
+
+    const token = this.getAuthToken();
+    const response = await fetch(`${this.baseUrl}/api/auth/profile`, {
+      method: 'PUT',
+      headers: {
+        ...(token && { 'Authorization': `Bearer ${token}` }),
+      },
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
+      throw new Error(error.error?.message || `HTTP error! status: ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  async getUserDebates(params?: {
+    limit?: number;
+    offset?: number;
+    category?: string | null;
+    status?: string | null;
+    sort?: string;
+  }): Promise<UserDebatesResponse> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params?.offset !== undefined) queryParams.append('offset', params.offset.toString());
+    if (params?.category) queryParams.append('category', params.category);
+    if (params?.status) queryParams.append('status', params.status);
+    if (params?.sort) queryParams.append('sort', params.sort);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/api/auth/debates${queryString ? `?${queryString}` : ''}`;
+
+    return this.fetchJson<UserDebatesResponse>(endpoint);
+  }
+
+  async getTopDebates(type: 'recent' | 'favorites' = 'recent', limit: number = 5): Promise<TopDebatesResponse> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('type', type);
+    queryParams.append('limit', limit.toString());
+
+    const endpoint = `/api/auth/debates/top?${queryParams.toString()}`;
+    return this.fetchJson<TopDebatesResponse>(endpoint);
+  }
+
+  async deleteDebate(debateId: string): Promise<{ success: boolean; message: string }> {
+    return this.fetchJson(`/api/debates/${debateId}`, {
+      method: 'DELETE',
+    });
+  }
+
+
 }
 
 export const apiClient = new ApiClient();
