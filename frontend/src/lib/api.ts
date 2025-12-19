@@ -275,6 +275,12 @@ export interface MeResponse {
   };
 }
 
+export interface UserLimits {
+  daily_limit: number;
+  remaining_debates: number;
+  resets_at: string;
+}
+
 export interface UpdateUserData {
   name?: string;
 }
@@ -688,6 +694,10 @@ class ApiClient {
       method: 'PUT',
       body: JSON.stringify(data),
     });
+  }
+
+  async getLimits(): Promise<UserLimits> {
+    return this.fetchJson<UserLimits>('/api/auth/limits');
   }
 
   logout(): void {

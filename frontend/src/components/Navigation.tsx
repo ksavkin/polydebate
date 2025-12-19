@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { apiClient } from "@/lib/api";
 
 const categories = [
   "Trending",
@@ -80,10 +81,22 @@ export function Navigation({
   showBottomBar = true, // Default to true for backward compatibility
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [remainingDebates, setRemainingDebates] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthenticated, logout } = useAuth();
+
+  // Fetch remaining debates when authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      apiClient.getLimits()
+        .then(limits => setRemainingDebates(limits.remaining_debates))
+        .catch(() => setRemainingDebates(null));
+    } else {
+      setRemainingDebates(null);
+    }
+  }, [isAuthenticated]);
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
   const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
 
@@ -173,6 +186,17 @@ export function Navigation({
 
               {isAuthenticated ? (
                 <>
+                  {remainingDebates !== null && (
+                    <span
+                      className="text-xs px-2 py-1 rounded-full"
+                      style={{
+                        backgroundColor: remainingDebates > 0 ? "rgba(255, 255, 255, 0.1)" : "rgba(239, 68, 68, 0.2)",
+                        color: remainingDebates > 0 ? "rgba(255, 255, 255, 0.8)" : "rgb(239, 68, 68)",
+                      }}
+                    >
+                      {remainingDebates} debates left
+                    </span>
+                  )}
                   <Link href="/profile">
                     <Button
                       variant="ghost"
