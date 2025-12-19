@@ -102,6 +102,17 @@ polydebate/
 └── storage/               # Database & audio files
 ```
 
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [ROADMAP.md](docs/ROADMAP.md) | Project roadmap and stages |
+| [STAGE_1.md](docs/STAGE_1.md) | Current stage implementation plan |
+| [API_SPECIFICATION.md](docs/API_SPECIFICATION.md) | Full API documentation |
+| [specification.md](docs/specification.md) | Original project specification |
+| [frontend/docs/design.md](frontend/docs/design.md) | Frontend design system |
+| [frontend/docs/implementation_plan.md](frontend/docs/implementation_plan.md) | Frontend implementation details |
+
 ## API Endpoints
 
 **Authentication:**
