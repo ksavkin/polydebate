@@ -1,10 +1,13 @@
 """
 User model for authentication
 """
-from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from datetime import datetime, date
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date
 from sqlalchemy.orm import relationship
 from database import Base
+
+# Daily debate limit - can be overridden via config
+DAILY_DEBATE_LIMIT = 3
 
 
 class User(Base):
@@ -23,6 +26,10 @@ class User(Base):
     avatar_url = Column(String(500), nullable=True)
     tokens_remaining = Column(Integer, default=100000)
     total_debates = Column(Integer, default=0)
+
+    # Daily debate limit fields
+    daily_debate_count = Column(Integer, default=0)
+    last_debate_date = Column(Date, nullable=True)
 
     # Relationship to verification codes
     verification_codes = relationship(
@@ -54,3 +61,19 @@ class User(Base):
             'last_login': self.last_login.isoformat() + 'Z' if self.last_login else None,
             'is_active': self.is_active
         }
+
+    def get_remaining_debates(self) -> int:
+        """Get number of debates remaining for today"""
+        today = date.today()
+        if self.last_debate_date != today:
+            return DAILY_DEBATE_LIMIT
+        return max(0, DAILY_DEBATE_LIMIT - self.daily_debate_count)
+
+    def increment_debate_count(self) -> None:
+        """Increment daily debate count, reset if new day"""
+        today = date.today()
+        if self.last_debate_date != today:
+            self.daily_debate_count = 1
+            self.last_debate_date = today
+        else:
+            self.daily_debate_count += 1

@@ -405,3 +405,18 @@ def update_current_user(current_user):
                 'message': 'An error occurred while updating your profile'
             }
         }), 500
+
+
+@auth_bp.route('/limits', methods=['GET'])
+@require_auth
+def get_limits(current_user):
+    """Get current user's debate limits"""
+    from models.user import DAILY_DEBATE_LIMIT
+
+    remaining = current_user.get_remaining_debates()
+
+    return jsonify({
+        'daily_limit': DAILY_DEBATE_LIMIT,
+        'remaining_debates': remaining,
+        'resets_at': 'midnight UTC'
+    }), 200

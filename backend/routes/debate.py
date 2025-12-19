@@ -87,6 +87,17 @@ def start_debate(current_user):
                 }
             }), 400
 
+        # Check daily debate limit
+        remaining = current_user.get_remaining_debates()
+        if remaining <= 0:
+            return jsonify({
+                'error': {
+                    'code': 'daily_limit_reached',
+                    'message': 'You have used all your debates for today. Resets at midnight UTC.'
+                },
+                'remaining_debates': 0
+            }), 429
+
         # Create debate with user_id
         debate = debate_service.create_debate(
             market_id=market_id,
@@ -94,6 +105,11 @@ def start_debate(current_user):
             rounds=rounds,
             user_id=current_user.id
         )
+
+        # Increment daily debate count
+        db = get_db()
+        current_user.increment_debate_count()
+        db.commit()
 
         return jsonify(debate), 201
 
