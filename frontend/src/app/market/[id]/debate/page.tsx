@@ -38,6 +38,8 @@ export default function DebatePage() {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [debateCompleteEventReceived, setDebateCompleteEventReceived] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [remainingDebates, setRemainingDebates] = useState<number | null>(null);
 
   const eventSourceRef = useRef<EventSource | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -115,6 +117,19 @@ export default function DebatePage() {
       fetchData();
     }
   }, [marketId]);
+
+  // Fetch daily debate limits
+  useEffect(() => {
+    apiClient.getLimits()
+      .then(limits => {
+        setRemainingDebates(limits.remaining_debates);
+        setLimitReached(limits.remaining_debates <= 0);
+      })
+      .catch(() => {
+        // If not authenticated or error, don't block - backend will handle it
+        setLimitReached(false);
+      });
+  }, []);
 
   // Keep refs in sync with current state
   useEffect(() => {
@@ -366,9 +381,18 @@ export default function DebatePage() {
         }
       };
 
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error starting debate:', err);
-      setError(err instanceof Error ? err.message : 'Failed to start debate');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to start debate';
+
+      // Check if it's a daily limit error (429)
+      if (errorMessage.includes('daily') || errorMessage.includes('limit')) {
+        setLimitReached(true);
+        setRemainingDebates(0);
+        setError('Daily limit reached. Try again tomorrow!');
+      } else {
+        setError(errorMessage);
+      }
       setStatus('error');
     }
   };
@@ -1633,12 +1657,25 @@ export default function DebatePage() {
 
             {/* CTA Footer */}
             <div className="px-0 lg:pr-4 py-4 flex-shrink-0 border-t" style={{ borderColor: "var(--card-border)" }}>
+              {/* Remaining debates indicator */}
+              {remainingDebates !== null && (
+                <p
+                  className="text-caption mb-2 text-center"
+                  style={{ color: remainingDebates > 0 ? "var(--foreground-secondary)" : "var(--color-red)" }}
+                >
+                  {remainingDebates > 0
+                    ? `${remainingDebates} debate${remainingDebates !== 1 ? 's' : ''} remaining today`
+                    : 'Daily limit reached'
+                  }
+                </p>
+              )}
+
               <button
                 onClick={handleStartDebate}
-                disabled={selectedModels.length === 0 || status === 'starting'}
+                disabled={selectedModels.length === 0 || status === 'starting' || limitReached}
                 className="w-full py-2.5 rounded-lg font-semibold text-body transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 style={{
-                  backgroundColor: "var(--color-primary)",
+                  backgroundColor: limitReached ? "var(--foreground-secondary)" : "var(--color-primary)",
                   color: "var(--color-white)",
                 }}
               >
@@ -1647,6 +1684,8 @@ export default function DebatePage() {
                     <LoadingSpinner size="sm" />
                     Starting...
                   </div>
+                ) : limitReached ? (
+                  'Daily Limit Reached'
                 ) : (
                   'Start AI Debate'
                 )}
@@ -1654,7 +1693,10 @@ export default function DebatePage() {
 
               {/* Helper Text */}
               <p className="text-caption mt-2 text-center" style={{ color: "var(--foreground-secondary)" }}>
-                No capital at risk — this is an AI-only simulation.
+                {limitReached
+                  ? 'Resets at midnight UTC. Come back tomorrow!'
+                  : 'No capital at risk — this is an AI-only simulation.'
+                }
               </p>
 
               {/* Error Message */}
