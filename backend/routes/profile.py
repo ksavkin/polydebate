@@ -32,6 +32,7 @@ def get_profile(current_user):
         404: User not found
         500: Server error
     """
+    db = None
     try:
         user_id = current_user.id
         db = get_db()
@@ -80,6 +81,9 @@ def get_profile(current_user):
                 'message': 'An error occurred while fetching profile'
             }
         }), 500
+    finally:
+        if db:
+            db.close()
 
 
 @profile_bp.route('/profile', methods=['PUT'])

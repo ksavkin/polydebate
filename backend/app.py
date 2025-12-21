@@ -61,6 +61,12 @@ def create_app():
         logger.error(f"Configuration validation failed: {e}")
         # Continue anyway for development
 
+    # Add teardown handler to close database sessions
+    @app.teardown_appcontext
+    def shutdown_session(exception=None):
+        from database import close_db
+        close_db()
+
     # Register routes
     register_routes(app)
 

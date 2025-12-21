@@ -54,10 +54,20 @@ class PolymarketService:
         # Base parameters for all categories
         params = {
             'offset': offset,
-            'archived': 'false',
-            'active': 'true',
-            'ascending': 'false'
+            'archived': 'false'
         }
+
+        # Set active filter based on closed parameter
+        if closed:
+            # For ended markets, we want closed=true and active=false
+            # Use ascending=true to get oldest ended markets first (then frontend can sort)
+            params['closed'] = 'true'
+            params['active'] = 'false'
+            params['ascending'] = 'true'  # Get oldest first, will be sorted client-side
+        else:
+            # For regular markets, only show active ones
+            params['active'] = 'true'
+            params['ascending'] = 'false'  # Newest first
 
         # Set sort order and limit based on category
         if is_new:
@@ -65,12 +75,14 @@ class PolymarketService:
             # Fetch more to get diverse dates for time-based filtering (Today, This Week, etc.)
             params['order'] = 'startDate'
             params['limit'] = min(limit * 3, 300)  # Fetch 3x to get better date distribution
+        elif closed:
+            # Ended markets: sort by endDate to get most recently ended first
+            params['order'] = 'endDate'
+            params['limit'] = min(limit * 3, 300)  # Fetch more for time-based filtering
         else:
             # All other categories: sort by 24hr volume
             params['order'] = 'volume24hr'
             params['limit'] = min(limit, 100)
-
-        # Don't set closed filter - show all frequencies (both open and closed markets) for all categories
 
         # Use tag_slug for category filtering (Polymarket's native approach)
         if category and not is_breaking and not is_trending and not is_new:

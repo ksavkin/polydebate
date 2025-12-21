@@ -172,16 +172,26 @@ export function Navigation({
 
               {isAuthenticated ? (
                 <>
+                  {/* Debates counter with tooltip */}
                   {remainingDebates !== null && (
-                    <span
-                      className="text-xs px-2 py-1 rounded-full"
-                      style={{
-                        backgroundColor: remainingDebates > 0 ? "rgba(255, 255, 255, 0.1)" : "rgba(239, 68, 68, 0.2)",
-                        color: remainingDebates > 0 ? "rgba(255, 255, 255, 0.8)" : "rgb(239, 68, 68)",
-                      }}
-                    >
-                      {remainingDebates} debates left
-                    </span>
+                    <div className="relative group">
+                      <span
+                        className="cursor-default"
+                        style={{ color: "rgba(255, 255, 255, 0.6)" }}
+                      >
+                        ⚡
+                      </span>
+                      <div
+                        className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-1.5 text-xs rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50"
+                        style={{
+                          backgroundColor: "#1a1a1a",
+                          color: "rgba(255, 255, 255, 0.9)",
+                          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                        }}
+                      >
+                        {remainingDebates}/3 debates left today
+                      </div>
+                    </div>
                   )}
                   <Link href="/profile">
                     <Button
@@ -438,26 +448,6 @@ export function Navigation({
                   </kbd>
                 </div>
               </div>
-              {/* Filter Icon */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center hover:bg-white/10 transition-colors"
-                style={{ color: "rgba(255, 255, 255, 0.8)" }}
-                aria-label="Filter"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                  />
-                </svg>
-              </button>
               {/* Bookmark Icon */}
               <Link href="/favorites">
                 <button
