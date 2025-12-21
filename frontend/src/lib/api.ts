@@ -494,6 +494,21 @@ class ApiClient {
     return this.fetchJson<MarketsResponse>(endpoint);
   }
 
+  async getBreakingMarkets(params?: {
+    tag?: string;
+    limit?: number;
+  }): Promise<MarketsResponse> {
+    const queryParams = new URLSearchParams();
+
+    if (params?.limit !== undefined) queryParams.append('limit', params.limit.toString());
+    if (params?.tag) queryParams.append('tag', params.tag);
+
+    const queryString = queryParams.toString();
+    const endpoint = `/api/markets/breaking${queryString ? `?${queryString}` : ''}`;
+
+    return this.fetchJson<MarketsResponse>(endpoint);
+  }
+
   async getMarket(marketId: string): Promise<Market> {
     // Add cache-busting parameter to ensure fresh data
     const url = `/api/markets/${marketId}?t=${Date.now()}`;

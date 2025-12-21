@@ -22,31 +22,30 @@ interface BreakingNewsProps {
   onCategoryChange: (category: string) => void;
 }
 
+// Category display names and their API values
+// Note: Polymarket API uses specific category slugs
 const breakingCategories = [
-  "All",
-  "Politics",
-  "World",
-  "Sports",
-  "Crypto",
-  "Finance",
-  "Tech",
-  "Culture",
+  { label: "All", value: "all" },
+  { label: "Politics", value: "politics" },
+  { label: "World", value: "world" },
+  { label: "Sports", value: "sports" },
+  { label: "Crypto", value: "crypto" },
+  { label: "Finance", value: "finance" },
+  { label: "Tech", value: "tech" },
+  { label: "Culture", value: "culture" },
 ];
 
 export function BreakingNews({ markets, activeCategory, onCategoryChange }: BreakingNewsProps) {
   const [email, setEmail] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("breaking");
 
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    month: 'short', 
+  const currentDate = new Date().toLocaleDateString('en-US', {
+    month: 'short',
     day: 'numeric',
     year: 'numeric'
   });
 
-  // Filter markets by selected category
-  const filteredMarkets = selectedCategory === "breaking" 
-    ? markets 
-    : markets.filter(m => m.category.toLowerCase() === selectedCategory.toLowerCase());
+  // Markets are already filtered by the API based on activeCategory
+  const filteredMarkets = markets;
 
   return (
     <div>
@@ -116,12 +115,11 @@ export function BreakingNews({ markets, activeCategory, onCategoryChange }: Brea
       {/* Category Filter Bar */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto scrollbar-hide pb-2">
         {breakingCategories.map((category) => {
-          const categoryKey = category === "All" ? "breaking" : category.toLowerCase();
-          const isActive = selectedCategory === categoryKey;
+          const isActive = activeCategory === category.value;
           return (
             <button
-              key={category}
-              onClick={() => setSelectedCategory(categoryKey)}
+              key={category.value}
+              onClick={() => onCategoryChange(category.value)}
               className={cn(
                 "px-4 py-2 text-sm font-medium whitespace-nowrap rounded-full transition-colors duration-150",
               )}
@@ -143,7 +141,7 @@ export function BreakingNews({ markets, activeCategory, onCategoryChange }: Brea
                 }
               }}
             >
-              {category}
+              {category.label}
             </button>
           );
         })}
@@ -161,7 +159,7 @@ export function BreakingNews({ markets, activeCategory, onCategoryChange }: Brea
                 return (
                   <Link
                     key={market.id}
-                    href={`/market/${market.id}`}
+                    href={`/market/${market.id}/debate`}
                     className={cn(
                       "flex items-center gap-4 p-4 border-b transition-colors duration-150",
                       "hover:bg-gray-50"

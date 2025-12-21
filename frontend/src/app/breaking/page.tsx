@@ -2,27 +2,43 @@
 
 import { BreakingNews } from "@/components/BreakingNews";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
-import { useSearchParams } from "next/navigation";
-import { useMarkets } from "@/hooks/useMarkets";
-import { useMemo } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { useBreakingMarkets } from "@/hooks/useBreakingMarkets";
+import { useMemo, useState } from "react";
 import { useSearch } from "@/contexts/SearchContext";
 
 export default function BreakingPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const activeSubtopic = searchParams.get("subtopic") || "All";
   const { searchQuery } = useSearch();
 
+  // Get category from URL, default to "all"
+  const urlCategory = searchParams.get("category") || "all";
+  const [selectedCategory, setSelectedCategory] = useState(urlCategory);
+
   const {
-    allFilteredMarkets,
+    markets: allFilteredMarkets,
     isLoading,
     isInitialLoading,
     error,
-  } = useMarkets({
-    category: "breaking",
-    activeSubtopic,
+  } = useBreakingMarkets({
+    tag: selectedCategory === "all" ? undefined : selectedCategory,
     searchQuery,
-    cardsPerPage: 15,
   });
+
+  // Handle category change - update URL and state
+  const handleCategoryChange = (category: string) => {
+    setSelectedCategory(category);
+    const params = new URLSearchParams(searchParams.toString());
+    if (category === "all") {
+      params.delete("category");
+    } else {
+      params.set("category", category);
+    }
+    const queryString = params.toString();
+    router.push(`/breaking${queryString ? `?${queryString}` : ""}`, { scroll: false });
+  };
 
   // Transform markets for Breaking News component
   // Sort by absolute price change (highest first) to rank by biggest movers
@@ -119,10 +135,8 @@ export default function BreakingPage() {
   return (
     <BreakingNews
       markets={breakingMarkets}
-      activeCategory="breaking"
-      onCategoryChange={(category) => {
-        // Navigation will handle routing
-      }}
+      activeCategory={selectedCategory}
+      onCategoryChange={handleCategoryChange}
     />
   );
 }
