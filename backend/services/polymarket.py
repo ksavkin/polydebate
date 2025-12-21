@@ -23,7 +23,8 @@ class PolymarketService:
         offset: int = 0,
         category: Optional[str] = None,
         tag_id: Optional[str] = None,
-        closed: bool = False
+        closed: bool = False,
+        breaking_tag: Optional[str] = None
     ) -> Dict:
         """
         Fetch markets from Polymarket
@@ -34,12 +35,13 @@ class PolymarketService:
             category: Optional category slug filter (e.g., "politics", "sports")
             tag_id: Optional specific tag ID filter
             closed: Include closed markets
+            breaking_tag: Optional tag filter for breaking markets (e.g., "politics", "sports")
 
         Returns:
             Dict with markets list and pagination info
         """
         # Check cache first
-        cache_key = f"markets:{limit}:{offset}:{category}:{tag_id}:{closed}"
+        cache_key = f"markets:{limit}:{offset}:{category}:{tag_id}:{closed}:{breaking_tag}"
         cached_result = cache.get(cache_key)
         if cached_result:
             return cached_result
@@ -50,22 +52,23 @@ class PolymarketService:
         is_new = category and category.lower() == 'new'
 
         # Base parameters for all categories
-        # All categories use: active=true, frequency=all (no closed filter), sort by 24hr volume
         params = {
-            'limit': min(limit, 100),
             'offset': offset,
             'archived': 'false',
             'active': 'true',
             'ascending': 'false'
         }
 
-        # Set sort order based on category
+        # Set sort order and limit based on category
         if is_new:
-            # New: sort by newest (ID descending)
-            params['order'] = 'id'
+            # New: sort by startDate to get newest markets
+            # Fetch more to get diverse dates for time-based filtering (Today, This Week, etc.)
+            params['order'] = 'startDate'
+            params['limit'] = min(limit * 3, 300)  # Fetch 3x to get better date distribution
         else:
             # All other categories: sort by 24hr volume
             params['order'] = 'volume24hr'
+            params['limit'] = min(limit, 100)
 
         # Don't set closed filter - show all frequencies (both open and closed markets) for all categories
 
@@ -78,7 +81,8 @@ class PolymarketService:
                 'crypto': 'crypto',
                 'business': 'business',
                 'science': 'science',
-                'technology': 'technology',
+                'technology': 'tech',
+                'tech': 'tech',
                 'finance': 'finance',
                 'ai': 'ai',
                 'world': 'world',
@@ -104,19 +108,61 @@ class PolymarketService:
             # Use different endpoints based on category
             if is_breaking:
                 # Breaking uses biggest-movers API (markets with largest price changes)
+                # Pass category parameter to filter by category (e.g., politics, sports)
+                biggest_movers_params = {}
+                if breaking_tag:
+                    biggest_movers_params['category'] = breaking_tag
+
                 response = self.session.get(
                     'https://polymarket.com/api/biggest-movers',
+                    params=biggest_movers_params if biggest_movers_params else None,
                     timeout=10
                 )
                 response.raise_for_status()
                 biggest_movers_data = response.json()
 
                 # Transform biggest-movers data directly (it already has market info)
+                # First, collect all event slugs to batch lookup real event IDs
+                event_slugs = []
+                for market in biggest_movers_data.get('markets', [])[:limit]:
+                    event_data = market.get('events', [{}])[0] if market.get('events') else {}
+                    slug = event_data.get('slug', '')
+                    if slug:
+                        event_slugs.append(slug)
+
+                # Batch lookup event IDs and categories from Gamma API
+                slug_to_event_data = {}
+                if event_slugs:
+                    try:
+                        # Lookup events by slug (Gamma API supports this)
+                        for slug in event_slugs:
+                            lookup_response = self.session.get(
+                                f'{self.base_url}/events',
+                                params={'slug': slug},
+                                timeout=5
+                            )
+                            if lookup_response.status_code == 200:
+                                events = lookup_response.json()
+                                if events and len(events) > 0:
+                                    event = events[0]
+                                    slug_to_event_data[slug] = {
+                                        'id': str(event.get('id', '')),
+                                        'category': self._get_category_name(event.get('tags', []))
+                                    }
+                    except Exception as e:
+                        logger.warning(f"Failed to lookup event data: {e}")
+
                 markets = []
                 for market in biggest_movers_data.get('markets', [])[:limit]:
                     # Extract volume data
                     event_data = market.get('events', [{}])[0] if market.get('events') else {}
                     raw_volume = float(event_data.get('volume', 0))
+                    event_slug = event_data.get('slug', '')
+
+                    # Get the real event data from the lookup
+                    event_lookup = slug_to_event_data.get(event_slug, {})
+                    real_event_id = event_lookup.get('id', market.get('id'))
+                    real_category = event_lookup.get('category', 'Other')
 
                     # Get real price change from Polymarket (convert from decimal to percentage)
                     real_price_change = float(market.get('oneDayPriceChange', 0)) * 100
@@ -131,10 +177,10 @@ class PolymarketService:
                         sparkline = sparkline[-24:]
 
                     transformed_market = {
-                        'id': market.get('id'),
+                        'id': real_event_id,
                         'question': market.get('question'),
                         'description': '',
-                        'category': 'Breaking',
+                        'category': real_category,
                         'tag_id': None,
                         'outcomes': [
                             {
@@ -173,9 +219,8 @@ class PolymarketService:
                 return result
 
             elif is_trending or is_new:
-                # Trending and New use simple /events endpoint
                 # Trending: sorted by 24h volume
-                # New: sorted by newest (ID descending)
+                # New: sorted by startDate (newest first)
                 response = self.session.get(
                     f'{self.base_url}/events',
                     params=params,

@@ -23,9 +23,7 @@ const categories = [
   "World",
   "Economy",
   "Elections",
-  "Mentions",
   "Ended",
-  "More",
 ];
 
 // Topic chips - these would typically come from the active category
@@ -45,7 +43,7 @@ const topicChips = [
 const categorySubtopics: Record<string, string[]> = {
   trending: ["All", "Hot", "Most Volume", "Ending Soon", "New Markets"],
   breaking: ["All", "Just Now", "Last Hour", "Today", "This Week"],
-  new: ["All", "Today", "This Week", "This Month"],
+  new: ["All", "Most Volume", "Ending Soon"],
   politics: ["All", "US Elections", "Presidential", "Congress", "State Elections", "International"],
   sports: ["All", "NFL", "NBA", "MLB", "Soccer", "Tennis", "Golf"],
   finance: ["All", "Fed Rates", "Inflation", "Stocks", "Bonds", "Forex", "Commodities"],

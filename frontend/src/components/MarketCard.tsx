@@ -786,7 +786,7 @@ export function MarketCard({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.location.href = `/market/${id}`;
+                  window.location.href = `/market/${id}/debate`;
                 }}
                 className="text-caption text-left hover:underline transition-all duration-150"
                 style={{ 

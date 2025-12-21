@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { apiClient, type Market } from "@/lib/api";
+
+// Expanded search terms for geopolitics subtopics
+const geopoliticsSubtopicTerms: Record<string, string[]> = {
+  "us-china": ["us", "china", "chinese", "american", "united states", "u.s.", "beijing", "tariff", "trade war", "xi jinping"],
+  "russia-ukraine": ["russia", "ukraine", "russian", "ukrainian", "putin", "zelensky", "moscow", "kyiv", "kiev", "kremlin", "crimea"],
+  "middle east": ["israel", "gaza", "iran", "saudi", "arab", "palestine", "palestinian", "hamas", "hezbollah", "syria", "iraq", "yemen", "lebanon", "netanyahu"],
+  "europe": ["eu", "european", "germany", "german", "france", "french", "uk", "britain", "british", "nato", "brussels", "italy", "spain", "poland"],
+  "asia": ["japan", "japanese", "korea", "korean", "taiwan", "taiwanese", "india", "indian", "southeast asia", "indonesia", "philippines", "vietnam", "thailand"],
+};
 
 // Helper function to parse volume strings (e.g., "1.2M", "850K", "$10.5M")
 const parseVolume = (volumeStr: string): number => {
@@ -299,6 +308,14 @@ export function useMarkets({
         // Category-specific subtopics
         const question = market.question.toLowerCase();
         const marketCategory = market.category.toLowerCase();
+
+        // Check if this is a geopolitics subtopic with expanded terms
+        const expandedTerms = geopoliticsSubtopicTerms[subtopicLower];
+        if (expandedTerms) {
+          // Match if any of the expanded terms are found in the question
+          return expandedTerms.some(term => question.includes(term));
+        }
+
         return question.includes(subtopicLower) || marketCategory.includes(subtopicLower);
       });
       

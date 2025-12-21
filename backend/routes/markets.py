@@ -114,6 +114,8 @@ def get_market_or_category(path):
             limit = request.args.get('limit', 100, type=int)
             offset = request.args.get('offset', 0, type=int)
             closed = request.args.get('closed', 'false').lower() == 'true'
+            # For breaking category, support tag filter (e.g., ?tag=politics)
+            breaking_tag = request.args.get('tag', None)
 
             # Validate
             limit = min(limit, 100)
@@ -125,7 +127,8 @@ def get_market_or_category(path):
                 offset=offset,
                 category=path,
                 tag_id=None,
-                closed=closed
+                closed=closed,
+                breaking_tag=breaking_tag
             )
 
             return jsonify(result), 200
