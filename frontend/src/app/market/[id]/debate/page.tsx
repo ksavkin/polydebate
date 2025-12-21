@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef, useMemo } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { apiClient, type Market, type Model, type DebateStartResponse, type DebateMessage, type DebateResults } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { LoadingSpinner } from "@/components/LoadingSpinner";
 import { Orb } from "@/components/Orb";
 import { DebateChat } from "@/components/DebateChat";
@@ -20,6 +21,7 @@ type DebateStatus = 'setup' | 'starting' | 'streaming' | 'completed' | 'error';
 export default function DebatePage() {
   const params = useParams();
   const router = useRouter();
+  const { refreshLimits } = useAuth();
   const marketId = params.id as string;
 
   const [market, setMarket] = useState<Market | null>(null);
@@ -216,6 +218,9 @@ export default function DebatePage() {
 
       setDebateId(response.debate_id);
       setStatus('streaming');
+
+      // Refresh limits in navigation after debate started
+      refreshLimits();
 
       // Start SSE stream
       const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001';

@@ -5,9 +5,8 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { apiClient } from "@/lib/api";
 
 const categories = [
   "Trending",
@@ -81,22 +80,11 @@ export function Navigation({
   showBottomBar = true, // Default to true for backward compatibility
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [remainingDebates, setRemainingDebates] = useState<number | null>(null);
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, remainingDebates } = useAuth();
 
-  // Fetch remaining debates when authenticated
-  useEffect(() => {
-    if (isAuthenticated) {
-      apiClient.getLimits()
-        .then(limits => setRemainingDebates(limits.remaining_debates))
-        .catch(() => setRemainingDebates(null));
-    } else {
-      setRemainingDebates(null);
-    }
-  }, [isAuthenticated]);
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
   const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
 

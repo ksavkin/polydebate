@@ -4,6 +4,7 @@ OpenRouter API integration service
 import aiohttp
 import asyncio
 import logging
+import requests
 from typing import List, Dict, Optional
 from config import config
 
@@ -17,100 +18,98 @@ class OpenRouterService:
         self.base_url = "https://openrouter.ai/api/v1"
         self.api_key = config.OPENROUTER_API_KEY
 
-    async def get_available_models(self, max_price_per_million: float = 15) -> Dict:
+    def get_available_models(self, max_price_per_million: float = 15) -> Dict:
         """
-        Get list of available AI models from OpenRouter
+        Get list of available AI models from OpenRouter (synchronous version)
 
         Returns whitelisted models filtered by price.
 
         Args:
-            max_price_per_million: Maximum price per 1M tokens (default 0.5)
+            max_price_per_million: Maximum price per 1M tokens (default 15)
 
         Returns:
             Dict with models list and counts
         """
-        async with aiohttp.ClientSession() as session:
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "HTTP-Referer": config.APP_URL,
-                "X-Title": "AI Debate Platform"
-            }
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "HTTP-Referer": config.APP_URL,
+            "X-Title": "AI Debate Platform"
+        }
 
-            async with session.get(
-                f"{self.base_url}/models",
-                headers=headers,
-                ssl=False,
-                timeout=aiohttp.ClientTimeout(total=30)
-            ) as response:
-                response.raise_for_status()
-                data = await response.json()
+        response = requests.get(
+            f"{self.base_url}/models",
+            headers=headers,
+            timeout=30
+        )
+        response.raise_for_status()
+        data = response.json()
 
-                # Get allowed models from config
-                allowed_models = set(config.ALLOWED_MODELS)
-                logger.info(f"Allowed models whitelist: {allowed_models}")
+        # Get allowed models from config
+        allowed_models = set(config.ALLOWED_MODELS)
+        logger.info(f"Allowed models whitelist: {allowed_models}")
 
-                # Filter and format models
-                models = []
-                filtered_by_price = []
-                filtered_by_whitelist = 0
+        # Filter and format models
+        models = []
+        filtered_by_price = []
+        filtered_by_whitelist = 0
 
-                for model in data.get('data', []):
-                    model_id = model.get('id', '')
+        for model in data.get('data', []):
+            model_id = model.get('id', '')
 
-                    # Filter by whitelist
-                    if model_id not in allowed_models:
-                        filtered_by_whitelist += 1
-                        continue
+            # Filter by whitelist
+            if model_id not in allowed_models:
+                filtered_by_whitelist += 1
+                continue
 
-                    # Calculate total price per million tokens
-                    pricing = model.get('pricing', {})
-                    input_price = float(pricing.get('prompt', 0))
-                    output_price = float(pricing.get('completion', 0))
-                    total_per_million = (input_price + output_price) * 1_000_000
+            # Calculate total price per million tokens
+            pricing = model.get('pricing', {})
+            input_price = float(pricing.get('prompt', 0))
+            output_price = float(pricing.get('completion', 0))
+            total_per_million = (input_price + output_price) * 1_000_000
 
-                    is_free = total_per_million == 0
+            is_free = total_per_million == 0
 
-                    # Filter by price
-                    if total_per_million > max_price_per_million and not is_free:
-                        filtered_by_price.append({
-                            'id': model_id,
-                            'price': total_per_million
-                        })
-                        logger.info(f"Filtered by price: {model_id} (${total_per_million:.2f} per million, max=${max_price_per_million})")
-                        continue
+            # Filter by price
+            if total_per_million > max_price_per_million and not is_free:
+                filtered_by_price.append({
+                    'id': model_id,
+                    'price': total_per_million
+                })
+                logger.info(f"Filtered by price: {model_id} (${total_per_million:.2f} per million, max=${max_price_per_million})")
+                continue
 
-                    logger.info(f"Accepted model: {model_id} (${total_per_million:.2f} per million, free={is_free})")
+            logger.info(f"Accepted model: {model_id} (${total_per_million:.2f} per million, free={is_free})")
 
-                    models.append({
-                        'id': model.get('id'),
-                        'name': model.get('name', model.get('id')),
-                        'provider': self._extract_provider(model.get('id', '')),
-                        'description': model.get('description', ''),
-                        'pricing': {
-                            'input': input_price,
-                            'output': output_price,
-                            'total_per_million': total_per_million
-                        },
-                        'is_free': is_free,
-                        'context_length': model.get('context_length', 0),
-                        'max_output_tokens': model.get('top_provider', {}).get('max_completion_tokens', 4096),
-                        'supported': True
-                    })
+            models.append({
+                'id': model.get('id'),
+                'name': model.get('name', model.get('id')),
+                'provider': self._extract_provider(model.get('id', '')),
+                'description': model.get('description', ''),
+                'pricing': {
+                    'input': input_price,
+                    'output': output_price,
+                    'total_per_million': total_per_million
+                },
+                'is_free': is_free,
+                'context_length': model.get('context_length', 0),
+                'max_output_tokens': model.get('top_provider', {}).get('max_completion_tokens', 4096),
+                'supported': True
+            })
 
-                free_count = sum(1 for m in models if m['is_free'])
-                paid_count = len(models) - free_count
+        free_count = sum(1 for m in models if m['is_free'])
+        paid_count = len(models) - free_count
 
-                logger.info(f"Filtering results: {len(models)} models accepted, {len(filtered_by_price)} filtered by price, {filtered_by_whitelist} filtered by whitelist")
-                if filtered_by_price:
-                    filtered_names = [f"{item['id']} (${item['price']:.2f})" for item in filtered_by_price]
-                    logger.info(f"Models filtered by price (>${max_price_per_million}): {filtered_names}")
+        logger.info(f"Filtering results: {len(models)} models accepted, {len(filtered_by_price)} filtered by price, {filtered_by_whitelist} filtered by whitelist")
+        if filtered_by_price:
+            filtered_names = [f"{item['id']} (${item['price']:.2f})" for item in filtered_by_price]
+            logger.info(f"Models filtered by price (>${max_price_per_million}): {filtered_names}")
 
-                return {
-                    'models': models,
-                    'total_count': len(models),
-                    'free_count': free_count,
-                    'paid_count': paid_count
-                }
+        return {
+            'models': models,
+            'total_count': len(models),
+            'free_count': free_count,
+            'paid_count': paid_count
+        }
 
     def _extract_provider(self, model_id: str) -> str:
         """Extract provider name from model ID"""

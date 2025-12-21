@@ -9,6 +9,7 @@ from services.debate import debate_service
 from config import config
 from database import get_db
 from models.db_models import DebateDB
+from models.user import User
 from utils.auth import require_auth
 
 logger = logging.getLogger(__name__)
@@ -107,8 +108,10 @@ def start_debate(current_user):
         )
 
         # Increment daily debate count
+        # Re-fetch user to ensure it's attached to current session
         db = get_db()
-        current_user.increment_debate_count()
+        user = db.query(User).filter(User.id == current_user.id).first()
+        user.increment_debate_count()
         db.commit()
 
         return jsonify(debate), 201

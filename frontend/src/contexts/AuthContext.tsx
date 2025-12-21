@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
+  remainingDebates: number | null;
   signupRequestCode: (data: SignupRequestData) => Promise<{ success: boolean; message: string; expiryMinutes: number }>;
   signupVerifyCode: (data: SignupVerifyData) => Promise<{ success: boolean; message: string; user: User }>;
   loginRequestCode: (data: LoginRequestData) => Promise<{ success: boolean; message: string; expiryMinutes: number }>;
@@ -14,6 +15,7 @@ interface AuthContextType {
   logout: () => void;
   updateUser: (data: UpdateUserData) => Promise<{ success: boolean; message: string; user: User }>;
   refreshUser: () => Promise<void>;
+  refreshLimits: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -21,6 +23,17 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [remainingDebates, setRemainingDebates] = useState<number | null>(null);
+
+  // Fetch limits
+  const fetchLimits = async () => {
+    try {
+      const limits = await apiClient.getLimits();
+      setRemainingDebates(limits.remaining_debates);
+    } catch {
+      setRemainingDebates(null);
+    }
+  };
 
   // Check authentication status on mount
   useEffect(() => {
@@ -29,6 +42,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           const response = await apiClient.getCurrentUser();
           setUser(response.data.user);
+          // Also fetch limits
+          await fetchLimits();
         } catch (error) {
           console.error('Failed to fetch user:', error);
           // Clear invalid token
@@ -82,6 +97,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const logout = () => {
     apiClient.logout();
     setUser(null);
+    setRemainingDebates(null);
+  };
+
+  const refreshLimits = async () => {
+    if (apiClient.isAuthenticated()) {
+      await fetchLimits();
+    }
   };
 
   const updateUser = async (data: UpdateUserData) => {
@@ -110,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     isAuthenticated: user !== null,
+    remainingDebates,
     signupRequestCode,
     signupVerifyCode,
     loginRequestCode,
@@ -117,6 +140,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     logout,
     updateUser,
     refreshUser,
+    refreshLimits,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
