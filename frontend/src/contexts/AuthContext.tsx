@@ -98,6 +98,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     apiClient.logout();
     setUser(null);
     setRemainingDebates(null);
+    // Force page reload to clear any cached state
+    window.location.href = '/';
   };
 
   const refreshLimits = async () => {

@@ -3,13 +3,76 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { apiClient, type Market } from "@/lib/api";
 
-// Expanded search terms for geopolitics subtopics
-const geopoliticsSubtopicTerms: Record<string, string[]> = {
+// Expanded search terms for category subtopics
+const subtopicExpandedTerms: Record<string, string[]> = {
+  // Geopolitics subtopics
   "us-china": ["us", "china", "chinese", "american", "united states", "u.s.", "beijing", "tariff", "trade war", "xi jinping"],
   "russia-ukraine": ["russia", "ukraine", "russian", "ukrainian", "putin", "zelensky", "moscow", "kyiv", "kiev", "kremlin", "crimea"],
   "middle east": ["israel", "gaza", "iran", "saudi", "arab", "palestine", "palestinian", "hamas", "hezbollah", "syria", "iraq", "yemen", "lebanon", "netanyahu"],
   "europe": ["eu", "european", "germany", "german", "france", "french", "uk", "britain", "british", "nato", "brussels", "italy", "spain", "poland"],
   "asia": ["japan", "japanese", "korea", "korean", "taiwan", "taiwanese", "india", "indian", "southeast asia", "indonesia", "philippines", "vietnam", "thailand"],
+  // Finance subtopics
+  "fed rates": ["fed", "federal reserve", "interest rate", "rate cut", "rate hike", "fomc", "powell", "monetary policy", "basis point"],
+  "inflation": ["inflation", "cpi", "consumer price", "price index", "deflation", "stagflation"],
+  "stocks": ["stock", "stocks", "s&p", "nasdaq", "dow", "equity", "equities", "shares", "market cap", "ipo"],
+  "bonds": ["bond", "bonds", "treasury", "treasuries", "yield", "yields", "debt", "fixed income"],
+  "forex": ["forex", "currency", "dollar", "euro", "yen", "pound", "exchange rate", "fx", "usd", "eur", "gbp"],
+  "commodities": ["commodity", "commodities", "oil", "gold", "silver", "copper", "wheat", "corn", "natural gas", "crude"],
+  // Sports subtopics
+  "nfl": ["nfl", "football", "super bowl", "touchdown", "quarterback", "patriots", "chiefs", "cowboys", "eagles", "49ers"],
+  "nba": ["nba", "basketball", "lakers", "celtics", "warriors", "bucks", "heat", "playoffs", "finals"],
+  "mlb": ["mlb", "baseball", "world series", "yankees", "dodgers", "red sox", "cubs", "home run"],
+  "soccer": ["soccer", "football", "fifa", "world cup", "premier league", "la liga", "champions league", "messi", "ronaldo", "manchester", "barcelona", "real madrid"],
+  "tennis": ["tennis", "wimbledon", "us open", "french open", "australian open", "grand slam", "djokovic", "nadal", "federer", "atp", "wta"],
+  "golf": ["golf", "pga", "masters", "us open golf", "british open", "ryder cup", "tiger woods", "mcilroy"],
+  // Politics subtopics
+  "us elections": ["election", "vote", "ballot", "primary", "caucus", "electoral", "swing state", "polling", "midterm", "general election", "runoff", "voter", "democrat", "republican"],
+  "presidential": ["president", "presidential", "white house", "oval office", "biden", "trump", "harris", "vance", "desantis", "newsom", "pence", "2024", "2028", "inauguration", "executive order"],
+  "congress": ["congress", "senate", "house", "representative", "senator", "speaker", "majority", "minority", "mcconnell", "schumer", "pelosi", "johnson", "filibuster", "legislation", "bill"],
+  "state elections": ["governor", "state legislature", "gubernatorial", "state senate", "state house", "secretary of state", "attorney general", "state race", "local election"],
+  "international": ["canada", "mexico", "uk election", "france election", "germany election", "brazil", "argentina", "parliamentary", "prime minister", "macron", "trudeau", "starmer"],
+  // Crypto subtopics
+  "bitcoin": ["bitcoin", "btc", "satoshi", "halving", "lightning network"],
+  "ethereum": ["ethereum", "eth", "vitalik", "solidity", "gas fee", "layer 2"],
+  "altcoins": ["altcoin", "solana", "cardano", "polkadot", "avalanche", "polygon", "matic", "xrp", "ripple"],
+  "defi": ["defi", "decentralized finance", "yield", "liquidity", "swap", "lending", "staking", "aave", "uniswap"],
+  "nfts": ["nft", "nfts", "opensea", "digital art", "collectible", "token"],
+  "regulation": ["regulation", "sec", "cftc", "crypto ban", "crypto law", "legal", "compliance"],
+  // Tech subtopics
+  "ai": ["ai", "artificial intelligence", "chatgpt", "openai", "anthropic", "claude", "llm", "machine learning", "neural"],
+  "apple": ["apple", "iphone", "ipad", "mac", "ios", "tim cook", "cupertino"],
+  "google": ["google", "alphabet", "android", "chrome", "youtube", "sundar pichai", "search"],
+  "microsoft": ["microsoft", "windows", "azure", "xbox", "satya nadella", "bing", "office"],
+  "startups": ["startup", "venture", "vc", "unicorn", "seed round", "series a", "founder", "y combinator"],
+  "hardware": ["hardware", "chip", "semiconductor", "nvidia", "amd", "intel", "processor", "gpu"],
+  // Culture subtopics
+  "entertainment": ["entertainment", "show", "award", "emmy", "grammy", "oscar", "golden globe"],
+  "movies": ["movie", "film", "box office", "cinema", "hollywood", "streaming", "netflix", "disney"],
+  "music": ["music", "album", "song", "artist", "concert", "tour", "spotify", "grammy"],
+  "tv": ["tv", "television", "series", "streaming", "netflix", "hbo", "show", "episode"],
+  "celebrities": ["celebrity", "star", "famous", "kardashian", "swift", "beyonce", "drake"],
+  // Economy subtopics
+  "gdp": ["gdp", "gross domestic product", "economic growth", "recession", "expansion"],
+  "employment": ["employment", "jobs", "unemployment", "labor", "workforce", "hiring", "layoff"],
+  "housing": ["housing", "real estate", "mortgage", "home price", "rent", "property"],
+  "trade": ["trade", "tariff", "import", "export", "deficit", "surplus", "wto"],
+  "policy": ["policy", "fiscal", "stimulus", "budget", "spending", "debt ceiling"],
+  // Elections subtopics
+  "us 2024": ["2024", "midterm", "november 2024"],
+  "us 2028": ["2028"],
+  "state": ["governor", "gubernatorial", "state legislature", "state senate", "state house", "secretary of state", "attorney general", "state election", "state race"],
+  "local": ["local election", "mayor", "city council", "county", "municipal", "school board", "local race"],
+  // Earnings subtopics (sector-specific company earnings)
+  // Match company names, tickers, or sector keywords in earnings questions
+  "tech": ["apple", "aapl", "google", "googl", "alphabet", "microsoft", "msft", "meta", "amazon", "amzn", "nvidia", "nvda", "tesla", "tsla", "intel", "intc", "amd", "qualcomm", "qcom", "broadcom", "avgo", "salesforce", "crm", "adobe", "adbe", "netflix", "nflx", "reddit", "rddt"],
+  "finance": ["jpmorgan", "jpm", "goldman", "gs", "morgan stanley", "ms", "bank of america", "bac", "wells fargo", "wfc", "citibank", "c", "state street", "stt", "jefferies", "jef", "blackrock", "blk", "charles schwab", "schw"],
+  "retail": ["walmart", "wmt", "target", "tgt", "costco", "cost", "gap", "gps", "home depot", "hd", "lowes", "low", "dollar", "dltr", "ross", "rost", "tjx", "carmax", "kmx"],
+  "energy": ["exxon", "xom", "chevron", "cvx", "shell", "shel", "bp", "conocophillips", "cop", "schlumberger", "slb", "halliburton", "hal", "occidental", "oxy", "rivian", "rivn"],
+  "healthcare": ["pfizer", "pfe", "johnson", "jnj", "unitedhealth", "unh", "merck", "mrk", "abbvie", "abbv", "eli lilly", "lly", "amgen", "amgn", "gilead", "gild", "bristol", "bmy", "moderna", "mrna", "regeneron", "regn", "cvs", "cigna", "ci", "humana", "hum"],
+  // World subtopics (geographic regions)
+  "americas": ["america", "americas", "u.s.", "usa", "united states", "canada", "canadian", "mexico", "mexican", "brazil", "brazilian", "argentina", "latin america", "south america", "north america", "caribbean", "venezuela", "colombia", "chile", "peru", "cuba"],
+  "africa": ["africa", "african", "nigeria", "south africa", "egypt", "kenya", "morocco", "ethiopia", "ghana", "congo", "sudan", "algeria", "tunisia", "libya"],
+  "oceania": ["australia", "australian", "new zealand", "pacific island", "oceania", "fiji", "papua", "samoa"],
 };
 
 // Helper function to parse volume strings (e.g., "1.2M", "850K", "$10.5M")
@@ -139,8 +202,8 @@ export function useMarkets({
           const response = await apiClient.getMarkets({
             limit: batchSize,
             offset: currentOffset,
-            category: category,
-            closed: false,
+            category: category === "ended" ? undefined : category,
+            closed: category === "ended", // Fetch closed markets for "ended" category
           });
 
           lastResponse = response;
@@ -217,66 +280,69 @@ export function useMarkets({
     if (activeSubtopic !== "All") {
       const now = new Date();
       const subtopicLower = activeSubtopic.toLowerCase();
-      
+
       filtered = filtered.filter((market) => {
-        // Time-based filters
+        // Ended category filters - check FIRST before generic time filters
+        if (category === "ended") {
+          if (!market.end_date) return false;
+          const endDate = new Date(market.end_date);
+          const daysSinceEnd = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
+
+          if (subtopicLower === "today") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 1;
+          }
+
+          if (subtopicLower === "this week") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 7;
+          }
+
+          if (subtopicLower === "this month") {
+            return daysSinceEnd >= 0 && daysSinceEnd < 30;
+          }
+
+          if (subtopicLower === "older") {
+            return daysSinceEnd >= 30;
+          }
+
+          // For "All" and other subtopics, show all ended markets
+          return true;
+        }
+
+        // Time-based filters for NON-ended categories
         if (subtopicLower === "just now" || subtopicLower === "last hour") {
           if (!market.created_date) return false;
           const createdDate = new Date(market.created_date);
           const hoursAgo = (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60);
           return hoursAgo <= 1;
         }
-        
+
         if (subtopicLower === "today") {
           if (!market.created_date) return false;
           const createdDate = new Date(market.created_date);
           const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
           return createdDate >= today;
         }
-        
+
         if (subtopicLower === "this week") {
           if (!market.created_date) return false;
           const createdDate = new Date(market.created_date);
           const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
           return createdDate >= weekAgo;
         }
-        
+
         if (subtopicLower === "this month") {
           if (!market.created_date) return false;
           const createdDate = new Date(market.created_date);
           const monthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
           return createdDate >= monthAgo;
         }
-        
+
         // Ending soon filter
         if (subtopicLower === "ending soon") {
           if (!market.end_date) return false;
           const endDate = new Date(market.end_date);
           const daysUntilEnd = (endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24);
           return daysUntilEnd > 0 && daysUntilEnd <= 7;
-        }
-        
-        // Ended category filters
-        if (category === "ended") {
-          if (!market.end_date) return false;
-          const endDate = new Date(market.end_date);
-          const daysSinceEnd = (now.getTime() - endDate.getTime()) / (1000 * 60 * 60 * 24);
-          
-          if (subtopicLower === "today") {
-            return daysSinceEnd >= 0 && daysSinceEnd < 1;
-          }
-          
-          if (subtopicLower === "this week") {
-            return daysSinceEnd >= 0 && daysSinceEnd < 7;
-          }
-          
-          if (subtopicLower === "this month") {
-            return daysSinceEnd >= 0 && daysSinceEnd < 30;
-          }
-          
-          if (subtopicLower === "older") {
-            return daysSinceEnd >= 30;
-          }
         }
         
         // New markets filter
@@ -309,11 +375,11 @@ export function useMarkets({
         const question = market.question.toLowerCase();
         const marketCategory = market.category.toLowerCase();
 
-        // Check if this is a geopolitics subtopic with expanded terms
-        const expandedTerms = geopoliticsSubtopicTerms[subtopicLower];
+        // Check if this subtopic has expanded search terms
+        const expandedTerms = subtopicExpandedTerms[subtopicLower];
         if (expandedTerms) {
           // Match if any of the expanded terms are found in the question
-          return expandedTerms.some(term => question.includes(term));
+          return expandedTerms.some((term: string) => question.includes(term));
         }
 
         return question.includes(subtopicLower) || marketCategory.includes(subtopicLower);
@@ -415,8 +481,8 @@ export function useMarkets({
       const response = await apiClient.getMarkets({
         limit: limit,
         offset: offset,
-        category: category,
-        closed: false,
+        category: category === "ended" ? undefined : category,
+        closed: category === "ended", // Fetch closed markets for "ended" category
       });
 
       if (response.markets.length > 0) {
