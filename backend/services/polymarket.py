@@ -480,27 +480,51 @@ class PolymarketService:
     def _get_outcomes(self, markets: List[Dict], event_data: Optional[Dict] = None) -> List[Dict]:
         """Extract outcomes from Polymarket markets"""
         outcomes = []
+        import json as json_module
+
+        # Check if this is a binary market (single market with outcomes field containing ["Yes", "No"])
+        # Binary markets have 1 market object with outcomes as a JSON string array
+        is_binary_market = False
+        binary_outcome_names = None
+
+        if len(markets) == 1:
+            first_market = markets[0]
+            outcomes_field = first_market.get('outcomes', None)
+            if outcomes_field:
+                if isinstance(outcomes_field, str):
+                    try:
+                        parsed_outcomes = json_module.loads(outcomes_field)
+                        if isinstance(parsed_outcomes, list) and len(parsed_outcomes) == 2:
+                            # This is a binary market with Yes/No outcomes
+                            is_binary_market = True
+                            binary_outcome_names = parsed_outcomes
+                            logger.info(f"Detected binary market with outcomes: {binary_outcome_names}")
+                    except:
+                        pass
+                elif isinstance(outcomes_field, list) and len(outcomes_field) == 2:
+                    is_binary_market = True
+                    binary_outcome_names = outcomes_field
+                    logger.info(f"Detected binary market with outcomes (list): {binary_outcome_names}")
 
         # Get all outcome prices from event level first (if available)
         # Then fallback to getting from first market's outcomePrices array
         all_outcome_prices = None
         all_outcome_price_changes = None
-        
+
         # Try event level first
         if event_data:
             outcome_prices = event_data.get('outcomePrices', None)
             if outcome_prices:
                 if isinstance(outcome_prices, str):
                     try:
-                        import json
-                        outcome_prices = json.loads(outcome_prices)
+                        outcome_prices = json_module.loads(outcome_prices)
                     except:
                         outcome_prices = None
                 if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
                     all_outcome_prices = [float(p) for p in outcome_prices]
                     # Debug: Log outcomePrices from event level
                     logger.info(f"Event-level outcomePrices: {all_outcome_prices[:5]}... (first 5)")
-            
+
             # Try to get 24h price changes from event level
             price_changes = event_data.get('priceChanges24h', None)
             if price_changes is None:
@@ -508,13 +532,12 @@ class PolymarketService:
             if price_changes:
                 if isinstance(price_changes, str):
                     try:
-                        import json
-                        price_changes = json.loads(price_changes)
+                        price_changes = json_module.loads(price_changes)
                     except:
                         price_changes = None
                 if isinstance(price_changes, list):
                     all_outcome_price_changes = [float(p) * 100 for p in price_changes]  # Convert to percentage
-        
+
         # Fallback: Get outcomePrices from first market (like breaking markets do)
         if all_outcome_prices is None and markets:
             first_market = markets[0]
@@ -522,14 +545,61 @@ class PolymarketService:
             if outcome_prices:
                 if isinstance(outcome_prices, str):
                     try:
-                        import json
-                        outcome_prices = json.loads(outcome_prices)
+                        outcome_prices = json_module.loads(outcome_prices)
                     except:
                         outcome_prices = None
                 if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
                     all_outcome_prices = [float(p) for p in outcome_prices]
                     # Debug: Log outcomePrices from first market fallback
                     logger.info(f"First market fallback outcomePrices: {all_outcome_prices[:5]}... (first 5)")
+
+        # Handle binary markets specially - create 2 outcomes from the outcomes field
+        if is_binary_market and binary_outcome_names and len(markets) == 1:
+            market = markets[0]
+
+            # Get token IDs
+            token_ids = market.get('clobTokenIds', ['', ''])
+            if isinstance(token_ids, str):
+                try:
+                    token_ids = json_module.loads(token_ids)
+                except:
+                    token_ids = ['', '']
+
+            # Create outcome for each name (Yes, No)
+            for idx, outcome_name in enumerate(binary_outcome_names):
+                # Get price for this outcome
+                price = 0.5
+                if all_outcome_prices and idx < len(all_outcome_prices):
+                    price = all_outcome_prices[idx]
+
+                # Get price change for this outcome
+                price_change_24h = None
+                if all_outcome_price_changes and idx < len(all_outcome_price_changes):
+                    price_change_24h = all_outcome_price_changes[idx]
+
+                # Get token ID for this outcome
+                token_id = token_ids[idx] if idx < len(token_ids) else ''
+
+                outcome = {
+                    'name': outcome_name,
+                    'slug': token_id,
+                    'price': price,
+                    'shares': str(market.get('volume', 0))
+                }
+
+                # Add image URL if available
+                image_url = market.get('image', None) or market.get('imageUrl', None)
+                if image_url:
+                    outcome['image_url'] = image_url
+
+                # Add price change if available
+                if price_change_24h is not None:
+                    outcome['price_change_24h'] = round(price_change_24h, 2)
+
+                outcomes.append(outcome)
+
+            logger.info(f"Created {len(outcomes)} outcomes for binary market: {[o['name'] for o in outcomes]}")
+            return outcomes
 
         for idx, market in enumerate(markets):
             # Try multiple ways to get the probability/price for this outcome
@@ -541,8 +611,7 @@ class PolymarketService:
             if outcome_prices:
                 if isinstance(outcome_prices, str):
                     try:
-                        import json
-                        outcome_prices = json.loads(outcome_prices)
+                        outcome_prices = json_module.loads(outcome_prices)
                     except:
                         outcome_prices = None
                 if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
@@ -588,8 +657,7 @@ class PolymarketService:
             token_ids = market.get('clobTokenIds', [''])
             if isinstance(token_ids, str):
                 try:
-                    import json
-                    token_ids = json.loads(token_ids)
+                    token_ids = json_module.loads(token_ids)
                 except:
                     token_ids = ['']
 
