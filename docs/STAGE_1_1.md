@@ -25,7 +25,7 @@ Add methods:
 - `get_remaining_debates()` - returns how many debates left today
 - `increment_debate_count()` - increments count, resets if new day
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -36,7 +36,7 @@ ALTER TABLE users ADD COLUMN daily_debate_count INTEGER DEFAULT 0;
 ALTER TABLE users ADD COLUMN last_debate_date DATE;
 ```
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -51,7 +51,7 @@ After successful debate creation:
 - Call `current_user.increment_debate_count()`
 - Commit to database
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -69,7 +69,7 @@ Response:
 }
 ```
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -80,7 +80,7 @@ Response:
 
 Add `getLimits()` method that calls `/api/auth/limits`
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -89,7 +89,7 @@ Add `getLimits()` method that calls `/api/auth/limits`
 
 Display "X debates left today" for logged-in users
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
@@ -100,36 +100,36 @@ Display "X debates left today" for logged-in users
 - Show message: "Daily limit reached. Resets at midnight UTC."
 - Handle 429 error from API
 
-**Status:** [ ] Not started
+**Status:** [x] Completed
 
 ---
 
 ### Deploy & Test
 
 #### 8. Deploy backend
-- [ ] Push to production
-- [ ] Verify API is working
+- [x] Push to production
+- [x] Verify API is working
 
 #### 9. Deploy frontend
-- [ ] Push to production
-- [ ] Verify site loads
+- [x] Push to production
+- [x] Verify site loads
 
 #### 10. End-to-end testing
-- [ ] Register new user
-- [ ] Run 3 debates
-- [ ] Verify limit blocks 4th debate
-- [ ] Verify audio plays
-- [ ] Verify results display
+- [x] Register new user
+- [x] Run 3 debates
+- [x] Verify limit blocks 4th debate
+- [x] Verify audio plays
+- [x] Verify results display
 
 ---
 
 ## Success Criteria
 
-- [ ] Site is live and accessible
-- [ ] Users can register/login
-- [ ] Users can run up to 3 debates per day
-- [ ] Limit message shows when reached
-- [ ] Can demo full flow to sponsors
+- [x] Site is live and accessible
+- [x] Users can register/login
+- [x] Users can run up to 3 debates per day
+- [x] Limit message shows when reached
+- [x] Can demo full flow to sponsors
 
 ---
 
