@@ -83,6 +83,13 @@ export function Navigation({
   const searchParams = useSearchParams();
   const { user, isAuthenticated, logout, remainingDebates } = useAuth();
 
+  // Hide filters on debate pages, how-it-works, profile, and auth pages
+  const isDebatePage = pathname?.includes('/market/') && pathname?.includes('/debate');
+  const isHowItWorksPage = pathname === '/how-it-works';
+  const isProfilePage = pathname === '/profile';
+  const isAuthPage = pathname === '/login' || pathname === '/signup';
+  const shouldHideBottomBar = isDebatePage || isHowItWorksPage || isProfilePage || isAuthPage;
+
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
   const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
 
@@ -200,6 +207,7 @@ export function Navigation({
                       style={{
                         color: "rgba(255, 255, 255, 0.9)",
                         backgroundColor: "transparent",
+                        cursor: "pointer",
                       }}
                       className="hover:bg-white/10 transition-colors duration-150"
                       onMouseEnter={(e) => {
@@ -219,6 +227,7 @@ export function Navigation({
                     style={{
                       color: "rgba(255, 255, 255, 0.9)",
                       backgroundColor: "transparent",
+                      cursor: "pointer",
                     }}
                     className="hover:bg-white/10 transition-colors duration-150"
                     onMouseEnter={(e) => {
@@ -240,6 +249,7 @@ export function Navigation({
                       style={{
                         color: "rgba(255, 255, 255, 0.9)",
                         backgroundColor: "transparent",
+                        cursor: "pointer",
                       }}
                       className="hover:bg-white/10 transition-colors duration-150"
                       onMouseEnter={(e) => {
@@ -299,7 +309,7 @@ export function Navigation({
       </div>
 
       {/* Bottom Row - Tabs & Topics (conditionally shown) */}
-      {showBottomBar && (
+      {showBottomBar && !shouldHideBottomBar && (
       <div
         className="border-t relative"
         style={{

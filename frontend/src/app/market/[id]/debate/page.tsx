@@ -309,31 +309,44 @@ export default function DebatePage() {
             return; // Skip empty error events - don't count them
           }
           const data = JSON.parse(event.data);
-          
+
           // Only handle if there's actual error data (not empty object)
           const hasErrorData = data.error || data.message;
           const isEmpty = Object.keys(data).length === 0;
-          
+
           if (hasErrorData && !isEmpty) {
-            console.error('SSE application error event received:', data);
-            handleStreamEvent('error', data);
-            
-            // Only count meaningful errors
-            const now = Date.now();
-            if (now - lastErrorTime > errorWindowMs) {
-              // Reset counter if enough time has passed
-              errorCount = 0;
+            // Rate limit errors are expected for free models - log as warning, not error
+            const isRateLimit = data.error_type === 'rate_limit' ||
+              (data.error && (data.error.includes('429') || data.error.toLowerCase().includes('rate limit')));
+
+            if (isRateLimit) {
+              console.warn('Model rate limited:', data.model_name || 'unknown');
+              // Show rate limit as a non-blocking warning
+              setError(data.message || `${data.model_name || 'A model'} is rate limited. Debate continues with other models.`);
+              // Auto-clear the warning after 5 seconds so it doesn't persist
+              setTimeout(() => setError(null), 5000);
+            } else {
+              console.error('SSE application error event received:', data);
+              handleStreamEvent('error', data);
             }
-            errorCount++;
-            lastErrorTime = now;
-            
-            if (errorCount >= maxErrors) {
-              console.error('Too many SSE application errors. Closing connection.');
-              setError('Multiple application errors detected. The debate stream may be corrupted.');
-              setStatus('error');
-              if (eventSourceRef.current) {
-                eventSourceRef.current.close();
-                eventSourceRef.current = null;
+
+            // Only count non-rate-limit errors for connection issues
+            if (!isRateLimit) {
+              const now = Date.now();
+              if (now - lastErrorTime > errorWindowMs) {
+                errorCount = 0;
+              }
+              errorCount++;
+              lastErrorTime = now;
+
+              if (errorCount >= maxErrors) {
+                console.error('Too many SSE application errors. Closing connection.');
+                setError('Multiple application errors detected. The debate stream may be corrupted.');
+                setStatus('error');
+                if (eventSourceRef.current) {
+                  eventSourceRef.current.close();
+                  eventSourceRef.current = null;
+                }
               }
             }
           }

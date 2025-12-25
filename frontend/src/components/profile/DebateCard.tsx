@@ -7,9 +7,9 @@ import { UserDebate } from "@/lib/api";
 
 interface DebateCardProps {
   debate: UserDebate;
-  onDelete: (id: string) => void;
+  onDelete: (id: string) => void | Promise<void>;
   onView: (id: string) => void;
-  onToggleFavorite?: (marketId: string, debateId: string, isFavorite: boolean) => void;
+  onToggleFavorite?: (marketId: string, debateId: string, isFavorite: boolean) => void | Promise<void>;
   showActions?: boolean;
 }
 
@@ -30,10 +30,15 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
     return `${Math.floor(seconds / 2592000)}mo ago`;
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (window.confirm('Are you sure you want to delete this debate?')) {
       setIsDeleting(true);
-      onDelete(debate.debate_id);
+      try {
+        await onDelete(debate.debate_id);
+      } catch (error) {
+        console.error('Failed to delete debate:', error);
+        setIsDeleting(false);
+      }
     }
   };
 
@@ -70,6 +75,7 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
                 disabled={isFavoriteLoading}
                 className={`transition-colors text-lg ${debate.is_favorite ? 'text-red-500 hover:text-red-600' : 'text-gray-400 hover:text-red-500'
                   } ${isFavoriteLoading ? 'opacity-50' : ''}`}
+                style={{ cursor: "pointer" }}
                 title={debate.is_favorite ? "Remove from favorites" : "Add to favorites"}
               >
                 {debate.is_favorite ? '❤️' : '🤍'}
@@ -78,7 +84,7 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
                 onClick={handleDelete}
                 disabled={isDeleting}
                 className="transition-colors disabled:opacity-50 hover:text-red-500"
-                style={{ color: "var(--foreground-secondary)" }}
+                style={{ color: "var(--foreground-secondary)", cursor: "pointer" }}
                 title="Delete debate"
               >
                 🗑️
