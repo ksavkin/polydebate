@@ -50,7 +50,7 @@ export function ProfileHeader({ user, onEditClick, onLogoutClick }: ProfileHeade
             {/* Avatar */}
             {user.avatar_url ? (
               <img
-                src={`http://localhost:5001${user.avatar_url}`}
+                src={`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}${user.avatar_url}`}
                 alt={user.name}
                 className="w-20 h-20 rounded-full object-cover border-2"
                 style={{ borderColor: "var(--card-border)" }}

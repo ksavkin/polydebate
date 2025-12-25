@@ -21,7 +21,7 @@ export function EditProfileModal({ isOpen, user, onClose, onSave }: EditProfileM
   const [name, setName] = useState(user.name);
   const [avatar, setAvatar] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(
-    user.avatar_url ? `http://localhost:5001${user.avatar_url}` : null
+    user.avatar_url ? `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5001'}${user.avatar_url}` : null
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
