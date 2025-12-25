@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useFavorites } from '@/contexts/FavoritesContext';
+import { useSearch } from '@/contexts/SearchContext';
 import { apiClient, Market } from '@/lib/api';
 import { MarketCard } from '@/components/MarketCard';
 import Link from 'next/link';
@@ -12,9 +13,21 @@ export default function FavoritesPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAuth();
   const { favorites, loading: favoritesLoading } = useFavorites();
+  const { searchQuery } = useSearch();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loadingMarkets, setLoadingMarkets] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Filter markets based on search query
+  const filteredMarkets = useMemo(() => {
+    if (!searchQuery.trim()) return markets;
+    const query = searchQuery.toLowerCase();
+    return markets.filter(market =>
+      market.question.toLowerCase().includes(query) ||
+      market.description?.toLowerCase().includes(query) ||
+      market.category?.toLowerCase().includes(query)
+    );
+  }, [markets, searchQuery]);
 
   // Redirect to login if not authenticated (after loading is complete)
   useEffect(() => {
@@ -161,15 +174,33 @@ export default function FavoritesPage() {
         </div>
       )}
 
+      {/* No search results */}
+      {!favoritesLoading && !loadingMarkets && markets.length > 0 && filteredMarkets.length === 0 && searchQuery && (
+        <div className="flex flex-col items-center justify-center min-h-[30vh] text-center">
+          <p
+            className="text-body mb-2"
+            style={{ color: "var(--foreground-secondary)" }}
+          >
+            No favorites match "{searchQuery}"
+          </p>
+          <p
+            className="text-sm"
+            style={{ color: "var(--foreground-secondary)", opacity: 0.7 }}
+          >
+            Try a different search term
+          </p>
+        </div>
+      )}
+
       {/* Markets grid */}
-      {!favoritesLoading && !loadingMarkets && markets.length > 0 && (
+      {!favoritesLoading && !loadingMarkets && filteredMarkets.length > 0 && (
         <div
           className="grid gap-4"
           style={{
             gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 380px), 1fr))",
           }}
         >
-          {markets.map((market) => (
+          {filteredMarkets.map((market) => (
             <MarketCard
               key={market.id}
               id={market.id}
