@@ -9,10 +9,10 @@ interface StatisticsCardsProps {
     favorite_models: Array<{ model_name: string; usage_count: number }>;
     favorite_categories: Array<{ category: string; count: number }>;
   };
-  tokensRemaining: number;
+  debatesRemaining: number | null;
 }
 
-export function StatisticsCards({ statistics, tokensRemaining }: StatisticsCardsProps) {
+export function StatisticsCards({ statistics, debatesRemaining }: StatisticsCardsProps) {
   const topModel = statistics.favorite_models[0]?.model_name || 'N/A';
   const topCategory = statistics.favorite_categories[0]?.category || 'N/A';
 
@@ -24,8 +24,8 @@ export function StatisticsCards({ statistics, tokensRemaining }: StatisticsCards
         gradient="from-blue-500/20 to-purple-500/20"
       />
       <StatCard
-        title="Tokens Remaining"
-        value={tokensRemaining.toLocaleString()}
+        title="Debates Left Today"
+        value={debatesRemaining !== null ? `${debatesRemaining}/3` : 'N/A'}
         gradient="from-green-500/20 to-emerald-500/20"
       />
       <StatCard

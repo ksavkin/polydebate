@@ -46,9 +46,10 @@ class Config:
     MODEL_TIMEOUT_SECONDS = int(os.getenv('MODEL_TIMEOUT_SECONDS', 30))
 
     # Allowed AI Models (comma-separated list)
+    # Free models included - JSON parsing handles malformed responses
     ALLOWED_MODELS = os.getenv(
         'ALLOWED_MODELS',
-        'openai/gpt-5.1-chat,anthropic/claude-haiku-4.5,google/gemini-2.5-flash-lite,x-ai/grok-4-fast,qwen/qwen-turbo,deepseek/deepseek-chat-v3.1'
+        'openai/gpt-5.1-chat,anthropic/claude-haiku-4.5,google/gemini-2.5-flash-lite,x-ai/grok-4-fast,qwen/qwen-turbo,deepseek/deepseek-chat-v3.1,xiaomi/mimo-v2-flash:free,kwaipilot/kat-coder-pro:free,nvidia/nemotron-nano-12b-v2-vl:free,z-ai/glm-4.5-air:free,meta-llama/llama-3.2-3b-instruct:free'
     ).split(',')
     ALLOWED_MODELS = [m.strip() for m in ALLOWED_MODELS if m.strip()]  # Clean whitespace
 

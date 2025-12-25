@@ -409,32 +409,80 @@ Example of correct format (using actual outcome names):
             import json
             import re
 
-            try:
-                # Try to extract JSON from response (may be wrapped in markdown)
-                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', content, re.DOTALL)
-                if json_match:
-                    json_text = json_match.group(1)
-                else:
-                    # Try to find raw JSON
-                    json_match = re.search(r'\{.*\}', content, re.DOTALL)
-                    if json_match:
-                        json_text = json_match.group(0)
-                    else:
-                        # No JSON found, treat as plain text
-                        logger.warning(f"No JSON found in response from {model_id}, using plain text")
-                        # Create default predictions (equal distribution)
-                        return {
-                            'content': content,
-                            'predictions': {},
-                            'model': model_id,
-                            'tokens': data.get('usage', {})
-                        }
+            def try_parse_json(text):
+                """Try multiple strategies to parse JSON from model response"""
+                # Strategy 1: Try to parse the whole text as JSON
+                try:
+                    return json.loads(text)
+                except:
+                    pass
 
-                parsed = json.loads(json_text)
+                # Strategy 2: Extract from markdown code block
+                json_match = re.search(r'```(?:json)?\s*(\{.*?\})\s*```', text, re.DOTALL)
+                if json_match:
+                    try:
+                        return json.loads(json_match.group(1))
+                    except:
+                        pass
+
+                # Strategy 3: Find balanced JSON object
+                start_idx = text.find('{')
+                if start_idx != -1:
+                    depth = 0
+                    for i, char in enumerate(text[start_idx:], start_idx):
+                        if char == '{':
+                            depth += 1
+                        elif char == '}':
+                            depth -= 1
+                            if depth == 0:
+                                try:
+                                    return json.loads(text[start_idx:i+1])
+                                except:
+                                    break
+
+                # Strategy 4: Try to fix incomplete JSON
+                json_match = re.search(r'\{\s*"argument"\s*:\s*"([^"]*)"', text)
+                if json_match:
+                    argument = json_match.group(1)
+                    # Try to find predictions
+                    pred_match = re.search(r'"predictions"\s*:\s*\{([^}]*)\}', text)
+                    if pred_match:
+                        try:
+                            pred_text = '{' + pred_match.group(1) + '}'
+                            predictions = json.loads(pred_text)
+                            return {'argument': argument, 'predictions': predictions}
+                        except:
+                            pass
+                    return {'argument': argument, 'predictions': {}}
+
+                return None
+
+            try:
+                parsed = try_parse_json(content)
+
+                if parsed is None:
+                    # No JSON found, use content as plain text
+                    logger.warning(f"No valid JSON found in response from {model_id}, using plain text")
+                    return {
+                        'content': content,
+                        'predictions': {},
+                        'model': model_id,
+                        'tokens': data.get('usage', {})
+                    }
 
                 # Extract argument and predictions
                 argument = parsed.get('argument', content)
                 predictions = parsed.get('predictions', {})
+
+                # Ensure predictions values are numbers
+                if predictions:
+                    cleaned_predictions = {}
+                    for k, v in predictions.items():
+                        try:
+                            cleaned_predictions[k] = float(v) if v else 0
+                        except (ValueError, TypeError):
+                            cleaned_predictions[k] = 0
+                    predictions = cleaned_predictions
 
                 # Validate predictions sum to 100
                 if predictions and sum(predictions.values()) != 100:
@@ -451,6 +499,10 @@ Example of correct format (using actual outcome names):
                             max_key = max(normalized.items(), key=lambda x: x[1])[0]
                             normalized[max_key] += diff
                         predictions = normalized
+                    else:
+                        # All predictions are 0, can't normalize
+                        logger.warning(f"All predictions from {model_id} are 0, can't normalize")
+                        predictions = {}
 
                 return {
                     'content': argument,
@@ -459,8 +511,8 @@ Example of correct format (using actual outcome names):
                     'tokens': data.get('usage', {})
                 }
 
-            except json.JSONDecodeError as e:
-                logger.warning(f"Failed to parse JSON from {model_id}: {e}, using plain text")
+            except Exception as e:
+                logger.warning(f"Failed to parse response from {model_id}: {e}, using plain text")
                 return {
                     'content': content,
                     'predictions': {},

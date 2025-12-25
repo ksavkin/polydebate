@@ -459,12 +459,28 @@ class DebateService:
                 except Exception as e:
                     logger.error(f"Error from {model.model_id}: {type(e).__name__}: {str(e)}", exc_info=True)
 
+                    # Detect rate limiting errors for user-friendly message
+                    error_str = str(e).lower()
+                    is_rate_limited = (
+                        '429' in str(e) or
+                        'rate limit' in error_str or
+                        'too many requests' in error_str
+                    )
+
+                    if is_rate_limited:
+                        user_message = f"{model.model_name} is temporarily unavailable (rate limited). The debate will continue with other models."
+                        error_type = "rate_limit"
+                    else:
+                        user_message = f"Error from {model.model_name}: {str(e)}"
+                        error_type = "error"
+
                     # Send error event
                     error_data = {
                         'model_id': model.model_id,
                         'model_name': model.model_name,
                         'error': f"{type(e).__name__}: {str(e)}",
-                        'message': f"Error from {model.model_name}: {str(e)}",
+                        'message': user_message,
+                        'error_type': error_type,
                         'timestamp': datetime.utcnow().isoformat() + 'Z'
                     }
                     await event_queue.put({

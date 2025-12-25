@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, type ProfileUser, type ProfileStatistics, type UserDebate } from '@/lib/api';
+import { useAuth } from '@/contexts/AuthContext';
 import { ProfileHeader } from '@/components/profile/ProfileHeader';
 import { StatisticsCards } from '@/components/profile/StatisticsCards';
 import { TopDebates } from '@/components/profile/TopDebates';
@@ -11,6 +12,7 @@ import { EditProfileModal } from '@/components/profile/EditProfileModal';
 
 export default function ProfilePage() {
   const router = useRouter();
+  const { remainingDebates } = useAuth();
   const [user, setUser] = useState<ProfileUser | null>(null);
   const [statistics, setStatistics] = useState<ProfileStatistics | null>(null);
   const [topDebates, setTopDebates] = useState<UserDebate[]>([]);
@@ -200,7 +202,7 @@ export default function ProfilePage() {
         {/* Statistics Cards */}
         <StatisticsCards
           statistics={statistics}
-          tokensRemaining={user.tokens_remaining}
+          debatesRemaining={remainingDebates}
         />
 
         {/* Top Debates */}
