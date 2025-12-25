@@ -113,7 +113,6 @@ export function DebateHistory({
             }}
           >
             <option value="recent">Most Recent</option>
-            <option value="tokens">Most Tokens</option>
             <option value="rounds">Most Rounds</option>
           </select>
         </div>

@@ -127,7 +127,7 @@ export default function DebateViewPage() {
           currentRound={currentRound}
           models={models.filter((m) => {
             const debateModels = debate.models || debate.selected_models || [];
-            return debateModels.some((dm: any) => dm.model_id === m.id);
+            return debateModels.some((dm: any) => dm && dm.model_id === m.id);
           })}
           isCompleted={isCompleted}
           debateCompleteEventReceived={isCompleted}
