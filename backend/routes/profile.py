@@ -4,6 +4,7 @@ Profile routes - User profile management
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import logging
+from sqlalchemy import func
 from database import get_db
 from models.user import User
 from models.db_models import DebateDB
@@ -47,15 +48,15 @@ def get_profile(current_user):
                 }
             }), 404
 
-        # Get statistics
-        total_debates = db.query(DebateDB).filter_by(
-            user_id=user_id,
-            is_deleted=False
-        ).count()
+        # Get statistics using scalar subqueries for reliability
+        total_debates = db.query(func.count(DebateDB.debate_id)).filter(
+            DebateDB.user_id == user_id,
+            DebateDB.is_deleted == False
+        ).scalar() or 0
 
-        total_favorites = db.query(UserFavorite).filter_by(
-            user_id=user_id
-        ).count()
+        total_favorites = db.query(func.count(UserFavorite.id)).filter(
+            UserFavorite.user_id == user_id
+        ).scalar() or 0
 
         # Get favorite models
         favorite_models = get_favorite_models(db, user_id, limit=3)
@@ -182,7 +183,7 @@ def get_user_debates(current_user):
         - offset: Pagination offset (default: 0)
         - category: Filter by market category
         - status: Filter by status
-        - sort: Sort by 'recent', 'tokens', or 'rounds'
+        - sort: Sort by 'recent' or 'rounds'
         - date_from: ISO date string
         - date_to: ISO date string
 
@@ -225,8 +226,6 @@ def get_user_debates(current_user):
         # Apply sorting
         if sort == 'recent':
             query = query.order_by(DebateDB.created_at.desc())
-        elif sort == 'tokens':
-            query = query.order_by(DebateDB.total_tokens_used.desc())
         elif sort == 'rounds':
             query = query.order_by(DebateDB.rounds.desc())
         else:

@@ -68,6 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signupVerifyCode = async (data: SignupVerifyData) => {
     const response = await apiClient.signupVerifyCode(data);
     setUser(response.data.user);
+    // Fetch limits after successful signup
+    await fetchLimits();
     return {
       success: response.success,
       message: response.message,
@@ -87,6 +89,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginVerifyCode = async (data: LoginVerifyData) => {
     const response = await apiClient.loginVerifyCode(data);
     setUser(response.data.user);
+    // Fetch limits after successful login
+    await fetchLimits();
     return {
       success: response.success,
       message: response.message,

@@ -5,7 +5,6 @@ import os
 from sqlalchemy import create_engine, event
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, scoped_session
-from sqlalchemy.pool import StaticPool
 import logging
 
 logger = logging.getLogger(__name__)
@@ -29,13 +28,15 @@ def init_db(database_url: str, echo: bool = False):
     global engine, SessionLocal
 
     # Create engine with SQLite-specific settings
+    # Use NullPool for SQLite to avoid connection sharing issues
+    from sqlalchemy.pool import NullPool
     engine = create_engine(
         database_url,
         echo=echo,
         connect_args={
             "check_same_thread": False  # Allow multiple threads (needed for Flask)
         },
-        poolclass=StaticPool  # Use static pool for SQLite
+        poolclass=NullPool  # Create fresh connection per request for reliability
     )
 
     # Enable foreign keys for SQLite
