@@ -42,7 +42,12 @@ ALLOWED_MODELS = os.getenv(
 
 **Note:** Free models may output malformed responses. Improved JSON parsing in `backend/services/openrouter.py` handles this with multiple fallback strategies.
 
-**Status:** [x] Completed (11 models with robust parsing)
+**Rate Limiting:** Free models may hit rate limits (429 errors). Added user-friendly handling:
+- Backend detects rate limits and sends friendly message
+- Frontend shows temporary warning that auto-clears after 5 seconds
+- Debate continues with other models
+
+**Status:** [x] Completed (11 models with robust parsing and rate limit handling)
 
 ---
 
