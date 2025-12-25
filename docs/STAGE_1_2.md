@@ -141,6 +141,53 @@ Tested viewing completed debates:
 
 ---
 
+#### 9. Fix profile 500 error
+**File:** `backend/routes/profile.py`
+
+Fixed "tuple index out of range" error when loading profile:
+- Changed `.count()` to `func.count().scalar()` for reliable counting
+- SQLAlchemy's `.count()` on subqueries was returning tuples instead of scalars
+
+**Status:** [x] Completed
+
+---
+
+#### 10. Fix random 401 logouts
+**File:** `backend/database.py`
+
+Fixed sporadic authentication failures with SQLite:
+- Changed connection pooling to use `NullPool`
+- Creates fresh connection per request for reliability
+- Prevents stale connections from causing auth failures
+
+**Status:** [x] Completed
+
+---
+
+#### 11. Immediate UI updates for favorites
+**File:** `frontend/src/app/profile/page.tsx`
+
+Fixed bidirectional favorites synchronization:
+- When on Favorites tab and favoriting from Debate History, item appears immediately
+- When unfavoriting from Favorites tab, item is removed immediately
+- Statistics counter updates instantly
+
+**Status:** [x] Completed
+
+---
+
+#### 12. Search in favorites page
+**File:** `frontend/src/app/favorites/page.tsx`
+
+Added search functionality to favorites page:
+- Integrated `useSearch` context
+- Filter favorites by question, description, or category
+- Shows "no results" message when search has no matches
+
+**Status:** [x] Completed
+
+---
+
 ## Testing Checklist
 
 - [x] Delete debate from profile works
@@ -150,6 +197,10 @@ Tested viewing completed debates:
 - [x] Cursor changes to pointer on How it works/Profile/Logout
 - [x] No filters shown during active debate
 - [x] Can view past debates from profile
+- [x] Profile loads without 500 error
+- [x] No random 401 logouts
+- [x] Favorites UI updates immediately (both add and remove)
+- [x] Search works in favorites page
 
 ---
 
@@ -159,3 +210,5 @@ Tested viewing completed debates:
 - [x] UI is polished (proper cursors, clean navigation)
 - [x] 11 AI models available for debates
 - [x] Can demo full flow without UI glitches
+- [x] Profile and auth are stable (no random errors)
+- [x] Favorites page fully functional with search
