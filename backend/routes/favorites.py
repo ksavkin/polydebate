@@ -72,8 +72,9 @@ def add_favorite(current_user):
     """
     try:
         data = request.get_json()
-        market_id = data.get('market_id')
-        debate_id = data.get('debate_id')
+        logger.info(f"Add favorite request data: {data}")
+        market_id = data.get('market_id') if data else None
+        debate_id = data.get('debate_id') if data else None
 
         if not market_id:
             return jsonify({

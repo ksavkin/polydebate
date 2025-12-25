@@ -157,16 +157,46 @@ export default function ProfilePage() {
         await apiClient.addFavorite(marketId, debateId);
       }
 
-      // Update local state for both lists
-      const updateDebateList = (list: any[]) =>
-        list.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d);
+      // Update debates list - just toggle the flag
+      setDebates(prev =>
+        prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d)
+      );
 
-      setDebates(prev => updateDebateList(prev));
-      setTopDebates(prev => updateDebateList(prev));
+      // Update top debates list based on action and current tab
+      if (topDebatesType === 'favorites') {
+        if (isFavorite) {
+          // Unfavoriting while on favorites tab - remove item immediately
+          setTopDebates(prev => prev.filter(d => d.debate_id !== debateId));
+        } else {
+          // Adding favorite while on favorites tab - add item to the list
+          const debateToAdd = debates.find(d => d.debate_id === debateId);
+          if (debateToAdd) {
+            setTopDebates(prev => {
+              // Check if already in list
+              if (prev.some(d => d.debate_id === debateId)) {
+                return prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: true } : d);
+              }
+              // Add to beginning of list
+              return [{ ...debateToAdd, is_favorite: true }, ...prev].slice(0, 5);
+            });
+          }
+        }
+      } else {
+        // Recent tab - just toggle the flag
+        setTopDebates(prev =>
+          prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d)
+        );
+      }
 
-      // Refresh statistics to update favorites count
-      const profile = await apiClient.getProfile();
-      setStatistics(profile.statistics);
+      // Update statistics count
+      if (statistics) {
+        setStatistics({
+          ...statistics,
+          total_favorites: isFavorite
+            ? statistics.total_favorites - 1
+            : statistics.total_favorites + 1
+        });
+      }
     } catch (err) {
       console.error('Failed to toggle favorite:', err);
       alert('Failed to update favorite status');
