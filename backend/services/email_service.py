@@ -123,17 +123,31 @@ class EmailService:
             msg.attach(part1)
             msg.attach(part2)
 
-            logger.info(f"Connecting to SMTP server {self.config.SMTP_HOST}:{self.config.SMTP_PORT}")
+            # Try SSL on port 465 first (more reliable on cloud platforms)
+            # Fall back to TLS on port 587 if that fails
+            smtp_port = self.config.SMTP_PORT
+            use_ssl = smtp_port == 465
             
-            # Connect to Gmail SMTP
-            with smtplib.SMTP(self.config.SMTP_HOST, self.config.SMTP_PORT) as server:
-                logger.info("SMTP connection established, starting TLS")
-                server.starttls()
-                logger.info("TLS started, attempting login")
-                server.login(self.config.GMAIL_USER, self.config.GMAIL_APP_PASSWORD)
-                logger.info("Login successful, sending message")
-                server.send_message(msg)
-                logger.info("Message sent successfully")
+            logger.info(f"Connecting to SMTP server {self.config.SMTP_HOST}:{smtp_port} (SSL={use_ssl})")
+            
+            if use_ssl:
+                # SSL connection (port 465)
+                with smtplib.SMTP_SSL(self.config.SMTP_HOST, smtp_port, timeout=30) as server:
+                    logger.info("SMTP SSL connection established, attempting login")
+                    server.login(self.config.GMAIL_USER, self.config.GMAIL_APP_PASSWORD)
+                    logger.info("Login successful, sending message")
+                    server.send_message(msg)
+                    logger.info("Message sent successfully")
+            else:
+                # TLS connection (port 587)
+                with smtplib.SMTP(self.config.SMTP_HOST, smtp_port, timeout=30) as server:
+                    logger.info("SMTP connection established, starting TLS")
+                    server.starttls()
+                    logger.info("TLS started, attempting login")
+                    server.login(self.config.GMAIL_USER, self.config.GMAIL_APP_PASSWORD)
+                    logger.info("Login successful, sending message")
+                    server.send_message(msg)
+                    logger.info("Message sent successfully")
 
             logger.log_email_sent(to_email, success=True, service='gmail')
             return True
