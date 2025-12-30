@@ -3,6 +3,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { UserDebate } from "@/lib/api";
 
 interface DebateCardProps {
@@ -16,6 +17,10 @@ interface DebateCardProps {
 export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showActions = true }: DebateCardProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFavoriteLoading, setIsFavoriteLoading] = useState(false);
+  const router = useRouter();
+
+  // Check if this is a saved market (not a debate)
+  const isSavedMarket = debate.status === 'saved' || debate.debate_id.startsWith('saved-');
 
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
@@ -48,9 +53,20 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
 
     setIsFavoriteLoading(true);
     try {
-      await onToggleFavorite(debate.market_id, debate.debate_id, debate.is_favorite);
+      // For saved markets, use market_id for removal
+      const resourceId = isSavedMarket ? debate.market_id : debate.debate_id;
+      await onToggleFavorite(debate.market_id, resourceId, debate.is_favorite);
     } finally {
       setIsFavoriteLoading(false);
+    }
+  };
+
+  const handleViewOrStart = () => {
+    if (isSavedMarket) {
+      // Navigate to market page to start a debate
+      router.push(`/market/${debate.market_id}`);
+    } else {
+      onView(debate.debate_id);
     }
   };
 
@@ -80,15 +96,17 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
               >
                 {debate.is_favorite ? '❤️' : '🤍'}
               </button>
-              <button
-                onClick={handleDelete}
-                disabled={isDeleting}
-                className="transition-colors disabled:opacity-50 hover:text-red-500"
-                style={{ color: "var(--foreground-secondary)", cursor: "pointer" }}
-                title="Delete debate"
-              >
-                🗑️
-              </button>
+              {!isSavedMarket && (
+                <button
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="transition-colors disabled:opacity-50 hover:text-red-500"
+                  style={{ color: "var(--foreground-secondary)", cursor: "pointer" }}
+                  title="Delete debate"
+                >
+                  🗑️
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -106,7 +124,11 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
         )}
 
         <div className="text-sm mb-3" style={{ color: "var(--foreground-secondary)" }}>
-          {debate.rounds} rounds • {debate.models_count} models • {debate.total_tokens_used.toLocaleString()} tokens • {formatTimeAgo(debate.created_at)}
+          {isSavedMarket ? (
+            <>Saved {formatTimeAgo(debate.created_at)}</>
+          ) : (
+            <>{debate.rounds} rounds . {debate.models_count} models . {debate.total_tokens_used.toLocaleString()} tokens . {formatTimeAgo(debate.created_at)}</>
+          )}
         </div>
 
         <div className="flex items-center justify-between">
@@ -115,22 +137,24 @@ export function DebateCard({ debate, onDelete, onView, onToggleFavorite, showAct
             style={{
               backgroundColor: debate.status === 'completed' ? "rgba(39, 174, 96, 0.1)" :
                 debate.status === 'in_progress' ? "rgba(249, 199, 79, 0.1)" :
+                debate.status === 'saved' ? "rgba(147, 51, 234, 0.1)" :
                   "rgba(107, 114, 128, 0.1)",
               color: debate.status === 'completed' ? "var(--color-green)" :
                 debate.status === 'in_progress' ? "var(--color-sunny-yellow)" :
+                debate.status === 'saved' ? "rgb(147, 51, 234)" :
                   "var(--foreground-secondary)"
             }}
           >
-            {debate.status}
+            {debate.status === 'saved' ? 'Saved Market' : debate.status}
           </span>
 
           <Button
-            onClick={() => onView(debate.debate_id)}
+            onClick={handleViewOrStart}
             variant="ghost"
             className="text-sm h-8 hover:bg-blue-500/10"
             style={{ color: "var(--color-primary)" }}
           >
-            View Debate →
+            {isSavedMarket ? 'Start Debate' : 'View Debate'} →
           </Button>
         </div>
       </CardContent>

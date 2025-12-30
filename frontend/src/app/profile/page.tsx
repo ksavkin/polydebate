@@ -147,34 +147,43 @@ export default function ProfilePage() {
     setPagination(prev => ({ ...prev, offset }));
   };
 
-  const handleToggleFavorite = async (marketId: string, debateId: string, isFavorite: boolean) => {
+  const handleToggleFavorite = async (marketId: string, resourceId: string, isFavorite: boolean) => {
     try {
+      // resourceId can be either debateId or marketId (for saved markets)
+      const isSavedMarket = resourceId === marketId || resourceId.startsWith('saved-');
+      
       if (isFavorite) {
-        // Remove by debateId
-        await apiClient.removeFavorite(debateId);
+        // Remove favorite - use marketId for saved markets, resourceId for debates
+        await apiClient.removeFavorite(isSavedMarket ? marketId : resourceId);
       } else {
-        // Add with both IDs
-        await apiClient.addFavorite(marketId, debateId);
+        // Add with both IDs (for debates) or just marketId (for saved markets)
+        if (isSavedMarket) {
+          await apiClient.addFavorite(marketId);
+        } else {
+          await apiClient.addFavorite(marketId, resourceId);
+        }
       }
 
       // Update debates list - just toggle the flag
       setDebates(prev =>
-        prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d)
+        prev.map(d => d.debate_id === resourceId || d.market_id === marketId ? { ...d, is_favorite: !isFavorite } : d)
       );
 
       // Update top debates list based on action and current tab
       if (topDebatesType === 'favorites') {
         if (isFavorite) {
           // Unfavoriting while on favorites tab - remove item immediately
-          setTopDebates(prev => prev.filter(d => d.debate_id !== debateId));
+          setTopDebates(prev => prev.filter(d => 
+            d.debate_id !== resourceId && d.market_id !== marketId
+          ));
         } else {
           // Adding favorite while on favorites tab - add item to the list
-          const debateToAdd = debates.find(d => d.debate_id === debateId);
+          const debateToAdd = debates.find(d => d.debate_id === resourceId || d.market_id === marketId);
           if (debateToAdd) {
             setTopDebates(prev => {
               // Check if already in list
-              if (prev.some(d => d.debate_id === debateId)) {
-                return prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: true } : d);
+              if (prev.some(d => d.debate_id === resourceId || d.market_id === marketId)) {
+                return prev.map(d => (d.debate_id === resourceId || d.market_id === marketId) ? { ...d, is_favorite: true } : d);
               }
               // Add to beginning of list
               return [{ ...debateToAdd, is_favorite: true }, ...prev].slice(0, 5);
@@ -184,7 +193,7 @@ export default function ProfilePage() {
       } else {
         // Recent tab - just toggle the flag
         setTopDebates(prev =>
-          prev.map(d => d.debate_id === debateId ? { ...d, is_favorite: !isFavorite } : d)
+          prev.map(d => (d.debate_id === resourceId || d.market_id === marketId) ? { ...d, is_favorite: !isFavorite } : d)
         );
       }
 

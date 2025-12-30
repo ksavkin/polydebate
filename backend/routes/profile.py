@@ -286,23 +286,84 @@ def get_top_debates(current_user):
         limit = min(int(request.args.get('limit', 5)), 20)  # Max 20
 
         if debate_type == 'favorites':
-            # Get favorite debates
+            # Get all favorites (with or without debate_id)
             favorites = db.query(UserFavorite).filter_by(
                 user_id=user_id
-            ).all()
+            ).order_by(UserFavorite.created_at.desc()).limit(limit).all()
 
-            debate_ids = [f.debate_id for f in favorites if f.debate_id]
-            
-            if not debate_ids:
+            if not favorites:
                 return jsonify({
                     'type': debate_type,
                     'debates': []
                 }), 200
 
-            debates = db.query(DebateDB).filter(
-                DebateDB.debate_id.in_(debate_ids),
-                DebateDB.is_deleted == False
-            ).order_by(DebateDB.created_at.desc()).limit(limit).all()
+            formatted_debates = []
+            
+            # Separate favorites with and without debate_id
+            favorites_with_debate = [f for f in favorites if f.debate_id]
+            favorites_market_only = [f for f in favorites if not f.debate_id]
+            
+            # Handle favorites with debate_id (existing logic)
+            if favorites_with_debate:
+                debate_ids = [f.debate_id for f in favorites_with_debate]
+                debates = db.query(DebateDB).filter(
+                    DebateDB.debate_id.in_(debate_ids),
+                    DebateDB.is_deleted == False
+                ).all()
+                
+                for debate in debates:
+                    summary = format_debate_summary(db, debate, viewer_id=user_id)
+                    if summary:
+                        formatted_debates.append(summary)
+            
+            # Handle market-only favorites (new logic)
+            if favorites_market_only:
+                from services.polymarket import PolymarketService
+                polymarket = PolymarketService()
+                
+                for fav in favorites_market_only:
+                    try:
+                        market = polymarket.get_market(fav.market_id)
+                        if market:
+                            # Create a synthetic debate entry for display
+                            formatted_debates.append({
+                                'debate_id': f'saved-{fav.market_id}',
+                                'market_id': fav.market_id,
+                                'market_question': market.get('question', 'Unknown Market'),
+                                'market_category': market.get('category'),
+                                'status': 'saved',
+                                'rounds': 0,
+                                'models_count': 0,
+                                'total_tokens_used': 0,
+                                'created_at': fav.created_at.isoformat() + 'Z' if fav.created_at else None,
+                                'completed_at': None,
+                                'is_favorite': True
+                            })
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch market {fav.market_id}: {e}")
+                        # Still show the favorite even if market fetch fails
+                        formatted_debates.append({
+                            'debate_id': f'saved-{fav.market_id}',
+                            'market_id': fav.market_id,
+                            'market_question': f'Market #{fav.market_id}',
+                            'market_category': None,
+                            'status': 'saved',
+                            'rounds': 0,
+                            'models_count': 0,
+                            'total_tokens_used': 0,
+                            'created_at': fav.created_at.isoformat() + 'Z' if fav.created_at else None,
+                            'completed_at': None,
+                            'is_favorite': True
+                        })
+            
+            # Sort by created_at descending
+            formatted_debates.sort(
+                key=lambda x: x.get('created_at') or '',
+                reverse=True
+            )
+            
+            # Apply limit
+            formatted_debates = formatted_debates[:limit]
 
         else:
             # Get recent debates
@@ -311,12 +372,12 @@ def get_top_debates(current_user):
                 is_deleted=False
             ).order_by(DebateDB.created_at.desc()).limit(limit).all()
 
-        # Format debates
-        formatted_debates = []
-        for debate in debates:
-            summary = format_debate_summary(db, debate, viewer_id=user_id)
-            if summary:
-                formatted_debates.append(summary)
+            # Format debates
+            formatted_debates = []
+            for debate in debates:
+                summary = format_debate_summary(db, debate, viewer_id=user_id)
+                if summary:
+                    formatted_debates.append(summary)
 
         return jsonify({
             'type': debate_type,
