@@ -4,22 +4,23 @@ This file exists to help Railway detect Python and locate the application
 """
 import sys
 import os
+import importlib.util
 
 # Get the root directory (where this file is located)
 root_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Add backend directory to Python path
 backend_dir = os.path.join(root_dir, 'backend')
-if backend_dir not in sys.path:
-    sys.path.insert(0, backend_dir)
 
 # Change to root directory to ensure relative paths work correctly
 os.chdir(root_dir)
 
-# Import the actual Flask app from backend
-# Backend config uses absolute paths based on __file__, so this works correctly
+# Import the backend app.py directly using importlib to avoid circular import
+backend_app_path = os.path.join(backend_dir, 'app.py')
+spec = importlib.util.spec_from_file_location("backend_app", backend_app_path)
+backend_app_module = importlib.util.module_from_spec(spec)
+
 try:
-    from app import app
+    spec.loader.exec_module(backend_app_module)
+    app = backend_app_module.app
 except Exception as e:
     import traceback
     print(f"Error importing backend app: {e}")
