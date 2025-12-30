@@ -142,6 +142,7 @@ export interface DebateMessage {
   predictions: Record<string, number>; // outcome name -> percentage (0-100)
   audio_url?: string;
   audio_duration?: number;
+  audio_error?: string; // Error message if audio generation failed
   timestamp: string;
 }
 
@@ -600,6 +601,10 @@ class ApiClient {
 
   async getDebateTranscript(debateId: string): Promise<{ debate_id: string; messages: DebateMessage[] }> {
     return this.fetchJson(`/api/debate/${debateId}/transcript`);
+  }
+
+  async getAudioStatus(): Promise<{ has_audio: boolean; error: string | null }> {
+    return this.fetchJson('/api/debate/audio/status');
   }
 
   async getDebates(params?: {

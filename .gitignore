@@ -78,7 +78,3 @@ backend.log
 # IDE
 .vscode/
 .idea/
-
-
-design.md
-implementation_plan.md

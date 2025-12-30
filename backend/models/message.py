@@ -20,6 +20,7 @@ class Message:
     predictions: Dict[str, float]  # outcome -> percentage (0-100, can include decimals)
     audio_url: Optional[str]
     audio_duration: Optional[float]
+    audio_error: Optional[str]  # Error message if audio generation failed
     timestamp: str
 
     @staticmethod
@@ -44,6 +45,7 @@ class Message:
             predictions=predictions,
             audio_url=None,
             audio_duration=None,
+            audio_error=None,
             timestamp=datetime.utcnow().isoformat() + 'Z'
         )
 

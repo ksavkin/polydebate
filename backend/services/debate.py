@@ -394,6 +394,53 @@ class DebateService:
                     
                     logger.info(f"Final predictions from {model.model_id}: {predictions}")
 
+                    # Clean and format the message text
+                    raw_text = response.get('content', '')
+                    if not raw_text or not isinstance(raw_text, str):
+                        logger.warning(f"Invalid or empty text from {model.model_id}, using fallback")
+                        raw_text = "No response generated."
+                    
+                    import re
+                    # Remove markdown code blocks (```...```)
+                    cleaned_text = re.sub(r'```[^`]*```', '', raw_text, flags=re.DOTALL)
+                    # Remove inline code backticks
+                    cleaned_text = re.sub(r'`([^`]*)`', r'\1', cleaned_text)
+                    # Remove markdown links [text](url)
+                    cleaned_text = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', cleaned_text)
+                    # Remove markdown bold/italic
+                    cleaned_text = re.sub(r'\*\*([^\*]+)\*\*', r'\1', cleaned_text)
+                    cleaned_text = re.sub(r'\*([^\*]+)\*', r'\1', cleaned_text)
+                    cleaned_text = re.sub(r'__([^_]+)__', r'\1', cleaned_text)
+                    cleaned_text = re.sub(r'_([^_]+)_', r'\1', cleaned_text)
+                    # Remove HTML tags if any
+                    cleaned_text = re.sub(r'<[^>]+>', '', cleaned_text)
+                    # Remove JSON structure artifacts (if argument field wasn't properly extracted)
+                    cleaned_text = re.sub(r'^\s*["\']?argument["\']?\s*:\s*["\']?', '', cleaned_text, flags=re.IGNORECASE)
+                    cleaned_text = re.sub(r'["\']?\s*[,}]?\s*$', '', cleaned_text)
+                    # Strip whitespace
+                    cleaned_text = cleaned_text.strip()
+                    # Extract first sentence if multiple sentences exist
+                    # Split by sentence-ending punctuation
+                    sentence_endings = re.split(r'([.!?]+)', cleaned_text, maxsplit=1)
+                    if len(sentence_endings) >= 2:
+                        # Found at least one sentence ending
+                        first_sentence = sentence_endings[0] + sentence_endings[1]
+                        cleaned_text = first_sentence.strip()
+                    # Ensure it ends with punctuation
+                    if cleaned_text and not re.search(r'[.!?]$', cleaned_text):
+                        cleaned_text += '.'
+                    # Final cleanup - remove any remaining markdown artifacts
+                    cleaned_text = re.sub(r'\s+', ' ', cleaned_text)  # Multiple spaces to single
+                    cleaned_text = cleaned_text.strip()
+                    
+                    # If cleaning resulted in empty text, use original (with basic cleanup)
+                    if not cleaned_text:
+                        cleaned_text = re.sub(r'\s+', ' ', raw_text).strip()
+                        if not cleaned_text:
+                            cleaned_text = "No response generated."
+                    
+                    logger.debug(f"Cleaned text for {model.model_id}: {len(raw_text)} -> {len(cleaned_text)} chars")
+
                     # Create message using Message model
                     message = Message.create(
                         round=round_num,
@@ -401,7 +448,7 @@ class DebateService:
                         model_id=model.model_id,
                         model_name=model.model_name,
                         message_type=message_type,
-                        text=response['content'],
+                        text=cleaned_text,
                         predictions=predictions
                     )
 
@@ -419,10 +466,13 @@ class DebateService:
                         if audio_result.get('audio_url'):
                             message.audio_url = audio_result['audio_url']
                             message.audio_duration = audio_result.get('audio_duration', 0)
+                            message.audio_error = None
                             logger.info(f"Audio generated successfully: {audio_result['audio_url']}")
                         elif audio_result.get('error'):
+                            message.audio_error = audio_result['error']
                             logger.warning(f"Audio generation failed: {audio_result['error']}")
                     except Exception as audio_error:
+                        message.audio_error = str(audio_error)
                         logger.warning(f"Failed to generate audio: {audio_error}")
                         # Continue without audio - it's not critical
 

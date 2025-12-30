@@ -1,179 +1,171 @@
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@900,700,500,300,400&display=swap');
 @import "tailwindcss";
 
+/**
+ * PolyDebate Design System (Airy Glass)
+ * 
+ * Based on APP_DESIGN.md
+ * Aesthetics: Data-driven, modern fintech, minimalist
+ */
+
 :root {
-  /* PolyDebate Brand Colors */
-  --color-primary: #2563eb; /* Primary Brand Blue - for links, buttons, primary actions */
-  --color-primary-hover: #1d4ed8;
-  --color-primary-shadow: rgba(37, 99, 235, 0.3);
-  --color-primary-shadow-hover: rgba(37, 99, 235, 0.4);
-  
-  --color-cyan-shadow: rgba(0, 194, 255, 0.3);
-  
-  --color-coral: #ff6f59; /* Coral/Answer Orange - for AI responses */
-  --color-coral-hover: #ff5a40;
-  --color-coral-shadow: rgba(255, 111, 89, 0.3);
-  
-  --color-green: #27ae60; /* Green - for positive indicators, Yes buttons */
-  --color-green-hover: #229954;
-  --color-green-shadow: rgba(39, 174, 96, 0.3);
-  
-  --color-red: #ef4444; /* Red - for negative indicators, No buttons */
-  --color-red-hover: #dc2626;
-  --color-red-shadow: rgba(239, 68, 68, 0.3);
-  
-  --color-sunny-yellow: #f9c74f; /* Sunny Yellow - for highlights and notifications */
-  --color-turquoise: #21808D; /* True Turquoise - core brand accent */
-  --color-turquoise-hover: #1a6670;
-  
-  --color-black: #000000;
-  --color-white: #ffffff;
-  
-  /* Neutrals - Light Theme */
-  --color-light-gray: #f2f2f2;
-  --color-soft-gray: #e8e8e8;
-  --color-medium-gray: #d0d0d0;
-  --color-dark-gray: #666666;
-  --color-charcoal: #1f1f1f;
-  
-  /* Light theme (default) */
-  --background: #ffffff;
-  --foreground: #000000;
-  --foreground-secondary: hsl(0, 0%, 40%); /* 40% lightness for secondary text */
-  --card-bg: #e8e8e8;
-  --card-bg-hover: #f2f2f2; /* Lighter shade on hover - elevated element */
-  --card-border: rgba(0, 0, 0, 0.1);
-  --nav-bg: #2b2b2b;
-  --nav-bg-extension: rgba(43, 43, 43, 0.95); /* Lighter shade for navbar extension */
-  --nav-text: #ffffff;
-  
-  /* Typography */
-  --font-sans: var(--font-inter), 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: var(--font-inter), 'Inter', monospace;
-  
-  /* Typography Scale - 14px base */
-  --text-sm: 0.8125rem; /* 13px */
-  --text-base: 0.875rem; /* 14px */
-  --text-lg: 1rem; /* 16px */
-  --text-xl: 1.375rem; /* 22px */
-  --text-2xl: 1.75rem; /* 28px */
-  
-  /* Line Heights */
-  --leading-base: 1.5;
+  /* --- Brand Colors (HSL) --- */
+  --brand-blue: 224, 88%, 52%;
+  /* #1652f0 - Primary actions */
+  --brand-cyan: 194, 100%, 50%;
+  /* #00c2ff - User query accents */
+  --brand-coral: 8, 100%, 68%;
+  /* #ff6f59 - AI response accents */
+  --brand-green: 145, 63%, 42%;
+  /* #27ae60 - Positive indicators */
+  --brand-red: 0, 84%, 60%;
+  /* #ef4444 - Negative indicators */
+  --brand-yellow: 42, 94%, 64%;
+  /* #f9c74f - Highlights */
+  --brand-turquoise: 187, 46%, 38%;
+  /* #21808D - Subtle brand accent */
+
+  /* --- Neutrals (Light Mode per APP_DESIGN.md) --- */
+  --bg-floor: 0, 0%, 95%;
+  /* #f2f2f2 - Page background */
+  --bg-surface: 0, 0%, 100%;
+  /* #ffffff - Card surface level 1 */
+  --bg-surface-raised: 0, 0%, 98%;
+  /* #fafafa - Card surface level 2 */
+
+  --text-principal: 0, 0%, 0%;
+  /* #000000 - Primary text */
+  --text-secondary: 0, 0%, 45%;
+  /* #737373 - De-emphasized metadata */
+
+  --border-subtle: 0, 0%, 0%, 0.05;
+  /* Softened separation borders */
+
+  /* --- Navigation tokens --- */
+  --nav-bg: 0, 0%, 100%, 0.9;
+  /* Translucent pure white */
+  --nav-bg-extension: 0, 0%, 100%, 1;
+  --nav-text: hsl(var(--text-principal));
+  --nav-text-dim: hsla(0, 0%, 0%, 0.6);
+  --shadow-nav: 0 1px 2px rgba(0, 0, 0, 0.05);
+
+  /* --- Typography Config --- */
+  --font-satoshi: 'Satoshi', 'Inter', -apple-system, sans-serif;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-lg: 1rem;
+  --text-xl: 1.25rem;
   --leading-tight: 1.2;
-  --leading-relaxed: 1.75;
-  
-  /* Shadows - Light theme */
+  --leading-base: 1.5;
+
+  /* --- Shadows & Elevations (Apple Method) --- */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
-  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  --shadow-inset-dark: inset 0 1px 0 rgba(0, 0, 0, 0.05);
-  --shadow-nav: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.15);
-  --shadow-primary: 0 1px 2px var(--color-primary-shadow);
-  --shadow-primary-hover: 0 2px 4px var(--color-primary-shadow-hover);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 12px 24px rgba(0, 0, 0, 0.12);
+  --shadow-l1: var(--shadow-sm);
+  --shadow-l2: var(--shadow-md);
+  --shadow-l3: var(--shadow-lg);
+  --shadow-inset-light: inset 0 1px 0 rgba(255, 255, 255, 0.8);
+
+  /* --- Legacy Compatibility (Refined) --- */
+  --background: hsl(var(--bg-floor));
+  --foreground: hsl(var(--text-principal));
+  --foreground-secondary: hsl(var(--text-secondary));
+  --card-bg: hsl(var(--bg-surface));
+  --card-bg-hover: hsl(var(--bg-surface-raised));
+  --card-border: hsla(var(--border-subtle));
+  --color-primary: hsl(var(--brand-blue));
+  --color-primary-hover: hsl(224, 88%, 45%);
+  --color-white: #ffffff;
+  --color-charcoal: #1a1a1a;
+  --color-soft-gray: #f5f5f5;
+  --color-medium-gray: #e5e5e5;
+  --color-red: hsl(var(--brand-red));
+  --color-green: hsl(var(--brand-green));
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-mono);
+  --color-background: hsl(var(--bg-floor));
+  --color-foreground: hsl(var(--text-principal));
+  --font-sans: var(--font-satoshi);
 }
 
+/* 2. Global Resets & Typography */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: var(--text-base);
+  background: hsl(var(--bg-floor));
+  color: hsl(var(--text-principal));
+  font-family: var(--font-satoshi);
+  font-size: 14px;
   line-height: var(--leading-base);
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Typography utilities */
-.text-h1 {
-  font-size: var(--text-2xl);
+h1,
+h2,
+h3,
+h4,
+.text-heading {
   font-weight: 600;
   line-height: var(--leading-tight);
 }
 
-.text-h2 {
-  font-size: var(--text-xl);
-  font-weight: 600;
-  line-height: var(--leading-tight);
+/* 3. Reusable UI Components & Utilities */
+
+.card-l1 {
+  background: hsl(var(--bg-surface));
+  box-shadow: var(--shadow-l1);
+  border: 1px solid hsla(var(--border-subtle));
+  border-radius: 12px;
 }
 
-.text-body {
-  font-size: var(--text-base);
-  font-weight: 400;
-  line-height: var(--leading-base);
+.card-l2 {
+  background: hsl(var(--bg-surface-raised));
+  box-shadow: var(--shadow-l2);
+  border: 1px solid hsla(var(--border-subtle));
+  border-radius: 12px;
+  box-shadow: var(--shadow-l2), var(--shadow-inset-light);
 }
 
-.text-caption {
-  font-size: 0.8125rem; /* 13px */
-  font-weight: 400;
-  line-height: var(--leading-base);
+.interactive-card {
+  transition: transform 0.12s ease-out, box-shadow 0.12s ease-out;
 }
 
-/* Animation utilities for new cards */
-@keyframes fadeIn {
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-l2);
+}
+
+.interactive-card:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* 4. Feature-Specific Components */
+
+.message-ai {
+  background: hsl(var(--bg-surface));
+}
+
+.message-system {
+  background: hsl(var(--bg-surface-raised));
+}
+
+@keyframes blurIn {
   from {
     opacity: 0;
-    transform: translateY(16px);
+    filter: blur(8px);
+    transform: translateY(10px);
   }
+
   to {
     opacity: 1;
+    filter: blur(0px);
     transform: translateY(0);
   }
 }
 
-@keyframes fadeInBlur {
-  from {
-    opacity: 0;
-    backdrop-filter: blur(0px);
-  }
-  to {
-    opacity: 1;
-    backdrop-filter: blur(8px);
-  }
-}
-
-@keyframes toastFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(8px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.animate-in {
-  animation: fadeIn 0.5s ease-out forwards;
-}
-
-/* Hide scrollbar utility */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
-}
-
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
-}
-
-/* Polymarket animated gradient */
-@keyframes polymarketGradient {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+.animate-blur-in {
+  animation: blurIn 0.15s ease-out forwards;
 }
 
 .polymarket-gradient {
@@ -186,20 +178,25 @@ body {
   font-weight: 600;
 }
 
-@keyframes polymarketIconGradient {
+@keyframes polymarketGradient {
   0% {
-    stop-color: #8B5CF6;
+    background-position: 0% 50%;
   }
-  25% {
-    stop-color: #A855F7;
-  }
+
   50% {
-    stop-color: #9333EA;
+    background-position: 100% 50%;
   }
-  75% {
-    stop-color: #7C3AED;
-  }
+
   100% {
-    stop-color: #8B5CF6;
+    background-position: 0% 50%;
   }
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }

@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 from services.debate import debate_service
+from services.elevenlabs import elevenlabs_service
 from config import config
 from database import get_db
 from models.db_models import DebateDB
@@ -238,12 +239,24 @@ def stream_debate(debate_id):
                             logger.warning(f"Skipping invalid error event (not dict): {event}")
                             continue
 
-                        # Get error and message, filter out empty strings
-                        error_msg = event_data_obj.get('error', '').strip()
-                        message_msg = event_data_obj.get('message', '').strip()
+                        # Check if event_data_obj is actually empty (no keys or all values are empty)
+                        if not event_data_obj or (len(event_data_obj) == 0):
+                            logger.warning(f"Skipping empty error event (empty dict): {event}")
+                            continue
 
-                        if not error_msg and not message_msg:
-                            logger.warning(f"Skipping empty error event (no error/message): {event}")
+                        # Get error and message, filter out empty strings
+                        error_msg = event_data_obj.get('error', '').strip() if event_data_obj.get('error') else ''
+                        message_msg = event_data_obj.get('message', '').strip() if event_data_obj.get('message') else ''
+
+                        # Check all string values to see if any are non-empty
+                        has_content = False
+                        for key, value in event_data_obj.items():
+                            if value and (isinstance(value, str) and value.strip()) or (not isinstance(value, str) and value):
+                                has_content = True
+                                break
+
+                        if not has_content and not error_msg and not message_msg:
+                            logger.warning(f"Skipping empty error event (no content): {event}")
                             continue
 
                         # Ensure at least one field is present with non-empty value
@@ -379,3 +392,70 @@ def delete_debate(current_user, debate_id):
                 'message': str(e)
             }
         }), 500
+
+
+@debate_bp.route('/debate/audio/status', methods=['GET'])
+def get_audio_status():
+    """GET /api/debate/audio/status - Check ElevenLabs audio generation status"""
+    try:
+        has_audio = True
+        error_message = None
+        
+        if not config.ELEVENLABS_API_KEY:
+            has_audio = False
+            error_message = "ElevenLabs API key not configured"
+        else:
+            # Check if we can make a simple API call to check quota
+            import aiohttp
+            import asyncio
+            
+            async def check_quota():
+                try:
+                    async with aiohttp.ClientSession() as session:
+                        headers = {
+                            "xi-api-key": config.ELEVENLABS_API_KEY
+                        }
+                        # Try to get user info - this will fail if quota is exceeded or key is invalid
+                        async with session.get(
+                            "https://api.elevenlabs.io/v1/user",
+                            headers=headers,
+                            timeout=aiohttp.ClientTimeout(total=5)
+                        ) as response:
+                            if response.status == 401:
+                                error_text = await response.text()
+                                if 'quota_exceeded' in error_text:
+                                    return False, "ElevenLabs quota exceeded - no audio available"
+                                else:
+                                    return False, "ElevenLabs API key invalid"
+                            elif response.status == 200:
+                                # Check if user has credits
+                                user_data = await response.json()
+                                subscription = user_data.get('subscription', {})
+                                if subscription.get('tier') == 'free' and subscription.get('character_count', 0) >= subscription.get('character_limit', 0):
+                                    return False, "ElevenLabs free tier quota exceeded"
+                                return True, None
+                            else:
+                                return False, f"ElevenLabs API error: {response.status}"
+                except Exception as e:
+                    logger.error(f"Error checking ElevenLabs status: {e}")
+                    # If we can't check, assume audio is available (optimistic)
+                    return True, None
+            
+            # Run the async check
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            has_audio, error_message = loop.run_until_complete(check_quota())
+            loop.close()
+        
+        return jsonify({
+            'has_audio': has_audio,
+            'error': error_message
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error checking audio status: {e}")
+        # On error, assume audio is available (optimistic)
+        return jsonify({
+            'has_audio': True,
+            'error': None
+        }), 200

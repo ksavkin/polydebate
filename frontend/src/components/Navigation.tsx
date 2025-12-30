@@ -26,20 +26,6 @@ const categories = [
   "Ended",
 ];
 
-// Topic chips - these would typically come from the active category
-const topicChips = [
-  "All",
-  "Trump",
-  "Epstein",
-  "Venezuela",
-  "China",
-  "Google Search",
-  "Bitcoin",
-  "Ethereum",
-  "US Elections",
-  "Fed Rates",
-];
-
 const categorySubtopics: Record<string, string[]> = {
   trending: ["All", "Hot", "Most Volume", "Ending Soon", "New Markets"],
   breaking: ["All", "Just Now", "Last Hour", "Today", "This Week"],
@@ -65,7 +51,7 @@ interface NavigationProps {
   onCategoryChange: (category: string) => void;
   onSubtopicChange: (subtopic: string) => void;
   onSearchChange: (query: string) => void;
-  showBottomBar?: boolean; // Control whether to show categories and search bar
+  showBottomBar?: boolean;
 }
 
 export function Navigation({
@@ -75,7 +61,7 @@ export function Navigation({
   onCategoryChange,
   onSubtopicChange,
   onSearchChange,
-  showBottomBar = true, // Default to true for backward compatibility
+  showBottomBar = true,
 }: NavigationProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
@@ -83,7 +69,6 @@ export function Navigation({
   const searchParams = useSearchParams();
   const { user, isAuthenticated, logout, remainingDebates } = useAuth();
 
-  // Hide filters on debate pages, how-it-works, profile, and auth pages
   const isDebatePage = pathname?.includes('/market/') && pathname?.includes('/debate');
   const isHowItWorksPage = pathname === '/how-it-works';
   const isProfilePage = pathname === '/profile';
@@ -91,87 +76,61 @@ export function Navigation({
   const shouldHideBottomBar = isDebatePage || isHowItWorksPage || isProfilePage || isAuthPage;
 
   const subtopics = categorySubtopics[activeCategory] || categorySubtopics.trending;
-  const displayTopics = subtopics.length > 0 ? subtopics : topicChips;
+  const displayTopics = subtopics;
 
-  // Helper function to get route for category
   const getCategoryRoute = (category: string) => {
     const normalized = category.toLowerCase();
     return normalized === "trending" ? "/" : `/${normalized}`;
   };
 
   return (
-    <nav 
+    <nav
       className={cn(
-        "sticky top-0 z-50",
-        "transition-all duration-150"
+        "sticky top-0 z-50 transition-all duration-150 border-b",
+        "border-[hsla(var(--border-subtle))]"
       )}
       style={{
-        backgroundColor: "var(--nav-bg)",
+        backgroundColor: "hsla(var(--nav-bg))",
         boxShadow: "var(--shadow-nav)",
-        backdropFilter: "blur(10px)",
+        backdropFilter: "blur(12px)",
       }}
     >
-      {/* Top Row - Logo, Actions */}
       <div className="container mx-auto px-4">
         <div className="flex h-16 items-center justify-between gap-6">
-          {/* Left Section - Logo + Flag */}
-          <Link 
-            href="/" 
-            className="flex items-center gap-2 shrink-0"
-            style={{ minWidth: "fit-content" }}
+          <Link
+            href="/"
+            className="flex items-center gap-3 shrink-0 no-underline group"
           >
-            {/* Small square icon */}
-            <div 
-              className="w-8 h-8 rounded flex items-center justify-center shrink-0"
-              style={{
-                backgroundColor: "var(--color-primary)",
-              }}
-            >
-              <span 
-                className="text-white font-bold"
-                style={{ fontSize: "0.875rem" }}
-              >
-                PD
-              </span>
+            <div className="relative w-8 h-8 transition-transform group-hover:scale-105 shrink-0">
+              <img
+                src="/favicon_io/apple-touch-icon.png"
+                alt="PolyDebate Logo"
+                className="w-full h-full rounded-lg shadow-sm object-cover"
+              />
             </div>
-            {/* Title and Flag - on same line */}
             <div className="flex items-center gap-1.5">
-              <span 
-                className="font-bold"
-                style={{ 
-                  color: "var(--nav-text)",
-                  fontSize: "var(--text-lg)",
-                  lineHeight: "var(--leading-tight)",
+              <span
+                className="font-bold tracking-tight"
+                style={{
+                  color: "hsl(var(--text-principal))",
+                  fontSize: "1.25rem",
+                  lineHeight: "1.1",
                 }}
               >
                 PolyDebate
               </span>
-              {/* Country Flag - bigger, right next to PolyDebate */}
               <span style={{ fontSize: "1.25rem", lineHeight: "1" }}>🇺🇸</span>
             </div>
           </Link>
 
-          {/* Right Section - Actions */}
           <div className="flex items-center gap-2 shrink-0">
-            {/* Desktop Actions */}
             <div className="hidden md:flex items-center gap-2">
               <Link href="/how-it-works">
                 <Button
                   variant="ghost"
                   size="sm"
-                  style={{
-                    color: "rgba(255, 255, 255, 0.9)",
-                    border: "none",
-                    backgroundColor: "transparent",
-                    cursor: "pointer",
-                  }}
-                  className="hover:bg-white/10 transition-colors duration-150 cursor-pointer"
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                  }}
+                  style={{ color: "hsl(var(--text-principal))" }}
+                  className="hover:bg-black/5"
                 >
                   How it works
                 </Button>
@@ -179,24 +138,18 @@ export function Navigation({
 
               {isAuthenticated ? (
                 <>
-                  {/* Debates counter with tooltip */}
                   {remainingDebates !== null && (
-                    <div className="relative group">
-                      <span
-                        className="cursor-default"
-                        style={{ color: "rgba(255, 255, 255, 0.6)" }}
-                      >
-                        ⚡
-                      </span>
+                    <div className="relative group flex items-center px-2">
+                      <span className="cursor-default text-lg">⚡</span>
                       <div
                         className="absolute left-1/2 -translate-x-1/2 top-full mt-2 px-3 py-1.5 text-xs rounded-md whitespace-nowrap opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-150 z-50"
                         style={{
                           backgroundColor: "#1a1a1a",
-                          color: "rgba(255, 255, 255, 0.9)",
-                          boxShadow: "0 4px 12px rgba(0,0,0,0.3)",
+                          color: "#ffffff",
+                          boxShadow: "var(--shadow-md)",
                         }}
                       >
-                        {remainingDebates}/3 debates left today
+                        {remainingDebates}/3 daily reports
                       </div>
                     </div>
                   )}
@@ -204,18 +157,8 @@ export function Navigation({
                     <Button
                       variant="ghost"
                       size="sm"
-                      style={{
-                        color: "rgba(255, 255, 255, 0.9)",
-                        backgroundColor: "transparent",
-                        cursor: "pointer",
-                      }}
-                      className="hover:bg-white/10 transition-colors duration-150"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                      }}
+                      style={{ color: "hsl(var(--text-principal))" }}
+                      className="hover:bg-black/5"
                     >
                       {user?.name || user?.email}
                     </Button>
@@ -224,18 +167,8 @@ export function Navigation({
                     variant="ghost"
                     size="sm"
                     onClick={logout}
-                    style={{
-                      color: "rgba(255, 255, 255, 0.9)",
-                      backgroundColor: "transparent",
-                      cursor: "pointer",
-                    }}
-                    className="hover:bg-white/10 transition-colors duration-150"
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                    }}
+                    style={{ color: "hsl(var(--text-principal))" }}
+                    className="hover:bg-black/5"
                   >
                     Log Out
                   </Button>
@@ -246,18 +179,8 @@ export function Navigation({
                     <Button
                       variant="ghost"
                       size="sm"
-                      style={{
-                        color: "rgba(255, 255, 255, 0.9)",
-                        backgroundColor: "transparent",
-                        cursor: "pointer",
-                      }}
-                      className="hover:bg-white/10 transition-colors duration-150"
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = "rgba(255, 255, 255, 1)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = "rgba(255, 255, 255, 0.9)";
-                      }}
+                      style={{ color: "hsl(var(--text-principal))" }}
+                      className="hover:bg-black/5"
                     >
                       Log In
                     </Button>
@@ -265,17 +188,8 @@ export function Navigation({
                   <Link href="/signup">
                     <Button
                       size="sm"
-                      className="text-white transition-all duration-150"
-                      style={{
-                        backgroundColor: "var(--color-primary)",
-                        boxShadow: "var(--shadow-primary)",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "var(--color-primary)";
-                      }}
+                      className="text-white bg-[hsl(var(--brand-blue))] hover:opacity-90 transition-all"
+                      style={{ boxShadow: "var(--shadow-sm)" }}
                     >
                       Sign Up
                     </Button>
@@ -283,311 +197,89 @@ export function Navigation({
                 </>
               )}
             </div>
-            {/* Mobile Menu Icon */}
             <button
-              className="md:hidden p-2 rounded hover:bg-white/10 transition-colors"
+              className="md:hidden p-2 rounded hover:bg-black/5"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              style={{ color: "var(--nav-text)" }}
+              style={{ color: "hsl(var(--text-principal))" }}
               aria-label="Menu"
             >
-              <svg
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
+              <svg className="size-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </button>
           </div>
         </div>
       </div>
 
-      {/* Bottom Row - Tabs & Topics (conditionally shown) */}
       {showBottomBar && !shouldHideBottomBar && (
-      <div
-        className="border-t relative"
-        style={{
-          backgroundColor: "var(--nav-bg-extension)",
-          borderColor: "rgba(255, 255, 255, 0.1)",
-          zIndex: 1,
-          overflow: "visible",
-        }}
-      >
-        <div className="container mx-auto px-4">
-          {/* Main Tabs Row */}
-          <div 
-            className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-hide"
-            style={{
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
-            }}
-          >
-            {categories.map((category) => {
-              const categoryLower = category.toLowerCase();
-              const route = getCategoryRoute(categoryLower);
-              const isActive = activeCategory === categoryLower;
-              const isTrending = category === "Trending";
-              return (
-                <Link
-                  key={category}
-                  href={route}
-                  className={cn(
-                    "px-4 py-2 text-caption font-medium whitespace-nowrap",
-                    "transition-colors duration-150",
-                    "border-b-2",
-                    "flex items-center gap-1.5"
-                  )}
-                  style={{
-                    color: isActive ? "var(--nav-text)" : "rgba(255, 255, 255, 0.7)",
-                    lineHeight: "var(--leading-base)",
-                    borderColor: isActive ? "var(--color-primary)" : "transparent",
-                    textDecoration: "none",
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.95)";
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isActive) {
-                      e.currentTarget.style.color = "rgba(255, 255, 255, 0.7)";
-                    }
-                  }}
-                >
-                  {isTrending && (
-                    <svg
-                      className="size-3.5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                      />
-                    </svg>
-                  )}
-                  {category}
-                </Link>
-              );
-            })}
-          </div>
-
-          {/* Topic Chips Row - Hide for breaking category */}
-          {activeCategory !== "breaking" && (
-          <div className="flex items-center gap-3 py-2 overflow-x-auto scrollbar-hide" style={{ position: "relative", zIndex: 2 }}>
-            {/* Left Side - Search Bar, Filter, Bookmark */}
-            <div className="flex items-center gap-2 shrink-0" style={{ position: "relative", zIndex: 30 }}>
-              {/* Big Search Bar */}
-              <div 
-                className="relative flex items-center shrink-0"
-                style={{ width: "400px", minWidth: "300px", zIndex: 30 }}
-              >
-                {/* Search Icon */}
-                <div 
-                  className="absolute left-3 pointer-events-none"
-                  style={{ color: "rgba(255, 255, 255, 0.5)" }}
-                >
-                  <svg
-                    className="size-4"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                    />
-                  </svg>
-                </div>
-                {/* Input */}
-                <Input
-                  type="search"
-                  placeholder="Search polydebate"
-                  value={searchQuery}
-                  onChange={(e) => onSearchChange(e.target.value)}
-                  className={cn(
-                    "w-full pl-10 pr-10 h-9",
-                    "bg-white/10 border-white/20 text-white",
-                    "placeholder:text-white/50",
-                    "focus:bg-white/15 focus:border-white/25",
-                    "transition-all duration-150",
-                    "focus:ring-0 focus:outline-none focus-visible:ring-0 focus-visible:ring-offset-0"
-                  )}
-                  style={{
-                    borderRadius: "0.5rem",
-                    position: "relative",
-                    zIndex: 31,
-                    borderWidth: "1px",
-                    boxShadow: "none",
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.25)";
-                    e.currentTarget.style.borderWidth = "1px";
-                    e.currentTarget.style.boxShadow = "none";
-                    e.currentTarget.style.outline = "none";
-                    e.currentTarget.style.setProperty("--tw-ring-width", "0px");
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.borderColor = "rgba(255, 255, 255, 0.2)";
-                  }}
-                />
-                {/* Keyboard Hint */}
-                <div 
-                  className="absolute right-3 pointer-events-none flex items-center gap-1"
-                  style={{ color: "rgba(255, 255, 255, 0.4)" }}
-                >
-                  <kbd 
-                    className="px-1.5 py-0.5 text-xs rounded border"
-                    style={{
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      borderColor: "rgba(255, 255, 255, 0.2)",
-                    }}
-                  >
-                    /
-                  </kbd>
-                </div>
-              </div>
-              {/* Bookmark Icon - Toggle behavior */}
-              <button
-                className="w-7 h-7 rounded-full flex items-center justify-center transition-colors"
-                onClick={() => {
-                  if (pathname === '/favorites') {
-                    router.push('/');
-                  } else {
-                    router.push('/favorites');
-                  }
-                }}
-                style={
-                  pathname === '/favorites'
-                    ? {
-                        backgroundColor: "var(--color-primary)",
-                        color: "var(--color-white)",
-                        boxShadow: "var(--shadow-primary)",
-                      }
-                    : {
-                        backgroundColor: "transparent",
-                        color: "rgba(255, 255, 255, 0.8)",
-                      }
-                }
-                onMouseEnter={(e) => {
-                  if (pathname === '/favorites') {
-                    e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
-                  } else {
-                    e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (pathname === '/favorites') {
-                    e.currentTarget.style.backgroundColor = "var(--color-primary)";
-                  } else {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                  }
-                }}
-                aria-label="Bookmarks"
-              >
-                <svg
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Right Side - Topic Chips */}
-            <div 
-              className="flex items-center gap-1.5 flex-1 min-w-0 overflow-x-auto scrollbar-hide"
-              style={{
-                scrollbarWidth: "none",
-                msOverflowStyle: "none",
-              }}
-            >
-              {displayTopics.map((topic) => {
-                const isFavoritesPage = pathname.includes('/favorites');
-                const isActive = !isFavoritesPage && activeSubtopic === topic;
-                const handleClick = () => {
-                  // If on favorites page, always navigate to home page
-                  if (isFavoritesPage) {
-                    const params = new URLSearchParams();
-                    if (topic !== "All") {
-                      params.set("subtopic", topic);
-                    }
-                    const queryString = params.toString();
-                    router.push(`/${queryString ? `?${queryString}` : ""}`);
-                    return;
-                  }
-
-                  // Update URL with subtopic query param on current page
-                  onSubtopicChange(topic);
-                  const params = new URLSearchParams(searchParams?.toString() || "");
-                  if (topic === "All") {
-                    params.delete("subtopic");
-                  } else {
-                    params.set("subtopic", topic);
-                  }
-                  const queryString = params.toString();
-                  router.push(`${pathname}${queryString ? `?${queryString}` : ""}`);
-                };
+        <div
+          className="border-t border-[hsla(var(--border-subtle))]"
+          style={{ backgroundColor: "hsl(var(--bg-surface))" }}
+        >
+          <div className="container mx-auto px-4">
+            <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-hide">
+              {categories.map((category) => {
+                const categoryLower = category.toLowerCase();
+                const route = getCategoryRoute(categoryLower);
+                const isActive = activeCategory === categoryLower;
                 return (
-                  <button
-                    key={topic}
-                    onClick={handleClick}
+                  <Link
+                    key={category}
+                    href={route}
                     className={cn(
-                      "h-7 px-3 text-xs font-medium whitespace-nowrap rounded-full",
-                      "transition-all duration-150"
+                      "px-4 py-3 text-[13px] font-semibold whitespace-nowrap transition-all border-b-2",
+                      isActive ? "border-[hsl(var(--brand-blue))] text-[hsl(var(--brand-blue))]" : "border-transparent text-[hsl(var(--text-secondary))] hover:text-[hsl(var(--text-principal))]"
                     )}
-                    style={isActive ? {
-                      backgroundColor: "var(--color-primary)",
-                      color: "var(--color-white)",
-                      boxShadow: "var(--shadow-primary)",
-                    } : {
-                      backgroundColor: "rgba(255, 255, 255, 0.1)",
-                      color: "rgba(255, 255, 255, 0.8)",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.15)";
-                        e.currentTarget.style.color = "var(--nav-text)";
-                      } else {
-                        e.currentTarget.style.backgroundColor = "var(--color-primary-hover)";
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
-                        e.currentTarget.style.color = "rgba(255, 255, 255, 0.8)";
-                      } else {
-                        e.currentTarget.style.backgroundColor = "var(--color-primary)";
-                      }
-                    }}
                   >
-                    {topic}
-                  </button>
+                    {category === "Trending" && "🔥 "}{category}
+                  </Link>
                 );
               })}
             </div>
+
+            {activeCategory !== "breaking" && (
+              <div className="flex items-center gap-4 py-3 border-t border-[hsla(var(--border-subtle))] opacity-80">
+                <div className="relative flex items-center w-full max-w-[400px]">
+                  <div className="absolute left-3 text-[hsl(var(--text-secondary))] opacity-50">
+                    <svg className="size-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                  </div>
+                  <Input
+                    type="search"
+                    placeholder="Search market topics..."
+                    value={searchQuery}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    className="pl-10 h-10 bg-black/[0.02] border-none rounded-xl focus-visible:ring-1 focus-visible:ring-[hsl(var(--brand-blue))]/20 placeholder:text-[hsl(var(--text-secondary))]/40"
+                  />
+                  <div className="absolute right-3 hidden sm:flex items-center gap-1 opacity-30">
+                    <kbd className="px-1.5 py-0.5 text-[10px] rounded border bg-white">/</kbd>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide">
+                  {displayTopics.map((topic) => {
+                    const isActive = activeSubtopic === topic;
+                    return (
+                      <button
+                        key={topic}
+                        onClick={() => onSubtopicChange(topic)}
+                        className={cn(
+                          "h-8 px-4 text-xs font-medium rounded-full transition-all",
+                          isActive
+                            ? "bg-[hsl(var(--brand-blue))] text-white shadow-sm"
+                            : "bg-black/[0.04] text-[hsl(var(--text-secondary))] hover:bg-black/[0.08]"
+                        )}
+                      >
+                        {topic}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
-        )}
         </div>
-      </div>
       )}
     </nav>
   );

@@ -308,7 +308,7 @@ Example of correct format (using actual outcome names):
             }
 
             # Retry logic for rate limit errors
-            max_retries = 3
+            max_retries = 5
             retry_delay = 2  # Start with 2 seconds
             last_exception = None
             data = None
@@ -473,6 +473,23 @@ Example of correct format (using actual outcome names):
                 # Extract argument and predictions
                 argument = parsed.get('argument', content)
                 predictions = parsed.get('predictions', {})
+                
+                # Clean the argument text - remove markdown and formatting
+                if argument:
+                    import re
+                    # Remove markdown code blocks (```...```)
+                    argument = re.sub(r'```[^`]*```', '', argument, flags=re.DOTALL)
+                    # Remove inline code backticks
+                    argument = re.sub(r'`([^`]*)`', r'\1', argument)
+                    # Remove markdown links [text](url)
+                    argument = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', argument)
+                    # Remove markdown bold/italic
+                    argument = re.sub(r'\*\*([^\*]+)\*\*', r'\1', argument)
+                    argument = re.sub(r'\*([^\*]+)\*', r'\1', argument)
+                    argument = re.sub(r'__([^_]+)__', r'\1', argument)
+                    argument = re.sub(r'_([^_]+)_', r'\1', argument)
+                    # Strip whitespace and normalize
+                    argument = re.sub(r'\s+', ' ', argument).strip()
 
                 # Ensure predictions values are numbers
                 if predictions:

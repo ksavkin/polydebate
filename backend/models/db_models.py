@@ -130,6 +130,7 @@ class MessageDB(Base):
     # Audio (optional)
     audio_url = Column(String(500), nullable=True)
     audio_duration = Column(Float, nullable=True)
+    audio_error = Column(String(500), nullable=True)  # Error message if audio generation failed
 
     # Timestamp
     timestamp = Column(String(30), nullable=False, index=True)

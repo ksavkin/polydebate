@@ -209,7 +209,21 @@ class ElevenLabsService:
                                     logger.error(f"Fallback voice also failed: {fallback_error}")
                                     fallback_response.raise_for_status()
                     
-                    # For non-200 responses (other than handled 400), raise error
+                    # Handle quota exceeded error (401) - return gracefully without audio
+                    if response.status == 401:
+                        error_text = await response.text()
+                        logger.error(f"API error response: {error_text}")
+                        
+                        if 'quota_exceeded' in error_text:
+                            logger.warning(f"ElevenLabs quota exceeded - audio generation skipped for message {message_id}")
+                            return {
+                                'audio_url': None,
+                                'audio_duration': 0,
+                                'voice_id': voice_id,
+                                'error': 'ElevenLabs quota exceeded - please add credits to your account'
+                            }
+                    
+                    # For non-200 responses (other than handled 400/401), raise error
                     if response.status != 200:
                         error_text = await response.text()
                         logger.error(f"API error response: {error_text}")
@@ -237,16 +251,28 @@ class ElevenLabsService:
 
         except aiohttp.ClientResponseError as e:
             logger.error(f"ElevenLabs API error: {e.status} - {e.message}")
-            if hasattr(e, 'message') and e.message:
-                logger.error(f"Error details: {e.message}")
+            error_message = str(e.message) if hasattr(e, 'message') and e.message else ''
+            if error_message:
+                logger.error(f"Error details: {error_message}")
+            
             if e.status == 401:
-                logger.error("ElevenLabs API returned 401 - Check your API key in .env file (ELEVENLABS_API_KEY). This usually means: 1) Invalid API key, 2) Quota exceeded, or 3) Wrong API key is being used.")
-                return {
-                    'audio_url': None,
-                    'audio_duration': 0,
-                    'voice_id': voice_id,
-                    'error': 'Invalid API key or quota exceeded - check ELEVENLABS_API_KEY in .env'
-                }
+                # Check if it's quota exceeded or invalid API key
+                if 'quota_exceeded' in error_message.lower():
+                    logger.error("ElevenLabs quota exceeded - please add credits to your account")
+                    return {
+                        'audio_url': None,
+                        'audio_duration': 0,
+                        'voice_id': voice_id,
+                        'error': 'ElevenLabs quota exceeded - please add credits to your account'
+                    }
+                else:
+                    logger.error("ElevenLabs API returned 401 - Check your API key in .env file (ELEVENLABS_API_KEY). This usually means: 1) Invalid API key, 2) Quota exceeded, or 3) Wrong API key is being used.")
+                    return {
+                        'audio_url': None,
+                        'audio_duration': 0,
+                        'voice_id': voice_id,
+                        'error': 'Invalid API key - check ELEVENLABS_API_KEY in .env'
+                    }
             elif e.status == 429:
                 return {
                     'audio_url': None,
