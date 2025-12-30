@@ -233,13 +233,15 @@ class PolymarketService:
             elif is_trending or is_new:
                 # Trending: sorted by 24h volume
                 # New: sorted by startDate (newest first)
+                logger.info(f"Fetching {category} markets from Polymarket API")
                 response = self.session.get(
                     f'{self.base_url}/events',
                     params=params,
-                    timeout=10
+                    timeout=15
                 )
                 response.raise_for_status()
                 data = response.json()  # Returns array directly
+                logger.info(f"Received {len(data)} events from Polymarket API")
             else:
                 # For regular categories, use /events/pagination for better filtering
                 response = self.session.get(
