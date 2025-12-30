@@ -1,119 +1,117 @@
 <!DOCTYPE html>
-<html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            line-height: 1.5;
-            color: #000000;
-            margin: 0;
-            padding: 0;
-            background-color: #f2f2f2;
-            font-size: 14px;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-        .container {
-            max-width: 600px;
-            margin: 40px auto;
-            background-color: #ffffff;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
-        .header {
-            background: linear-gradient(135deg, #21808D 0%, #1a6670 100%);
-            color: #ffffff;
-            padding: 40px 30px;
-            text-align: center;
-        }
-        .header h1 {
-            margin: 0;
-            font-size: 28px;
-            font-weight: 600;
-            line-height: 1.2;
-        }
-        .content {
-            padding: 40px 30px;
-        }
-        .content p {
-            margin: 0 0 16px 0;
-            font-size: 16px;
-            line-height: 1.5;
-        }
-        .code-container {
-            background-color: #f2f2f2;
-            border: 2px solid #21808D;
-            border-radius: 12px;
-            padding: 24px;
-            margin: 30px 0;
-            text-align: center;
-        }
-        .code {
-            font-size: 36px;
-            font-weight: 600;
-            color: #2563eb;
-            letter-spacing: 8px;
-            font-family: 'Inter', monospace;
-        }
-        .expiry {
-            margin-top: 12px;
-            font-size: 13px;
-            color: #666666;
-        }
-        .footer {
-            background-color: #f2f2f2;
-            padding: 24px 30px;
-            text-align: center;
-            font-size: 13px;
-            color: #666666;
-            border-top: 1px solid #e8e8e8;
-        }
-        .footer a {
-            color: #2563eb;
-            text-decoration: none;
-        }
-        .footer a:hover {
-            color: #1d4ed8;
-        }
-        .warning {
-            background-color: #fffbeb;
-            border-left: 4px solid #f9c74f;
-            padding: 16px;
-            margin: 24px 0;
-            font-size: 14px;
-            color: #1f1f1f;
-            border-radius: 4px;
-        }
-        .warning strong {
-            color: #000000;
-        }
-    </style>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1">
+  <meta http-equiv="X-UA-Compatible" content="IE=Edge">
+  <title>{{app_name}} Verification Code</title>
+  <style type="text/css">
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; }
+    img { border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+    table { border-collapse: collapse !important; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; }
+
+    .bg { background-color: #0b0f14; }
+    .container { width: 100%; max-width: 600px; }
+    .card { background-color: #111827; border-radius: 16px; }
+    .muted { color: #9ca3af; }
+    .text { color: #e5e7eb; }
+    .brand { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; }
+    .link { color: #21808D; text-decoration: none; }
+
+    .codeBox { background-color: #0b0f14; border: 1px solid #1f2937; border-radius: 12px; }
+    .code { font-size: 44px; font-weight: 700; letter-spacing: 10px; color: #f9fafb; }
+
+    @media screen and (max-width: 480px) {
+      .pad { padding-left: 18px !important; padding-right: 18px !important; }
+      .code { font-size: 34px !important; letter-spacing: 7px !important; }
+    }
+  </style>
 </head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Welcome to {app_name}!</h1>
-        </div>
-        <div class="content">
-            <p>Hi <strong>{name}</strong>,</p>
-            <p>Thank you for signing up! To complete your registration, please enter the verification code below:</p>
+<body class="bg" style="background-color:#0b0f14;">
+  <center style="width:100%; background-color:#0b0f14;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background-color:#0b0f14;">
+      <tr>
+        <td align="center" style="padding: 28px 12px;">
 
-            <div class="code-container">
-                <div class="code">{code}</div>
-                <div class="expiry">This code expires in {expiry_minutes} minutes</div>
-            </div>
+          <!-- Container -->
+          <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="width:100%; max-width:600px;">
+            <!-- Header -->
+            <tr>
+              <td align="center" class="brand" style="padding: 18px 12px 28px 12px;">
+                <div style="font-size: 22px; font-weight: 800; letter-spacing: -0.02em; color: #f9fafb;">
+                  POLY<span style="color:#21808D;">DEBATE</span>
+                </div>
+                <div class="muted" style="margin-top: 6px; font-size: 12px; letter-spacing: 0.12em; text-transform: uppercase;">
+                  AI-Powered Market Intel
+                </div>
+              </td>
+            </tr>
 
-            <div class="warning">
-                <strong>Security Notice:</strong> If you didn't request this code, please ignore this email. Never share this code with anyone.
-            </div>
-        </div>
-        <div class="footer">
-            <p>Need help? Contact us at <a href="mailto:{support_email}">{support_email}</a></p>
-            <p>&copy; 2024 {app_name}. All rights reserved.</p>
-        </div>
-    </div>
+            <!-- Card -->
+            <tr>
+              <td class="card pad" style="background-color:#111827; border-radius:16px; padding: 34px 30px;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+
+                  <tr>
+                    <td align="center" class="brand" style="padding-bottom: 12px;">
+                      <div style="font-size: 20px; font-weight: 700; color: #f9fafb;">
+                        Verify your identity
+                      </div>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td align="center" class="brand text" style="padding: 0 6px 18px 6px; font-size: 15px; line-height: 24px; color:#e5e7eb;">
+                      Use the code below to complete your sign-in to <span style="color:#f9fafb; font-weight:700;">{{app_name}}</span>.
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td align="center" style="padding: 10px 0 6px 0;">
+                      <table role="presentation" class="codeBox" cellspacing="0" cellpadding="0" border="0" style="background-color:#0b0f14; border:1px solid #1f2937; border-radius:12px;">
+                        <tr>
+                          <td align="center" class="brand" style="padding: 22px 22px;">
+                            <div class="code" style="font-size:44px; font-weight:700; letter-spacing:10px; color:#f9fafb;">
+                              {{code}}
+                            </div>
+                            <div class="muted" style="margin-top: 12px; font-size: 13px; color:#9ca3af;">
+                              This code expires in <strong style="color:#e5e7eb;">{{expiry_minutes}} minutes</strong>.
+                            </div>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+
+                  <tr>
+                    <td align="center" class="muted" style="padding-top: 18px; font-size: 13px; line-height: 20px; color:#9ca3af;">
+                      If you did not request this code, you can ignore this email.
+                    </td>
+                  </tr>
+
+                </table>
+              </td>
+            </tr>
+
+            <!-- Footer -->
+            <tr>
+              <td align="center" class="brand muted" style="padding: 22px 12px 6px 12px; font-size: 12px; color:#9ca3af; line-height: 18px;">
+                <div>Copyright 2025 {{app_name}}. All rights reserved.</div>
+                <div style="margin-top: 6px;">
+                  Need help? Contact <a class="link" style="color:#21808D; text-decoration:none;" href="mailto:{{support_email}}">{{support_email}}</a>
+                </div>
+              </td>
+            </tr>
+
+          </table>
+          <!-- /Container -->
+
+        </td>
+      </tr>
+    </table>
+  </center>
 </body>
 </html>

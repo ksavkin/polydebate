@@ -18,7 +18,7 @@ class Config:
 
     # Server
     HOST = os.getenv('HOST', '0.0.0.0')
-    PORT = int(os.getenv('PORT', 5000))
+    PORT = int(os.getenv('PORT', 5001))
 
     # CORS - Production and development origins
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
@@ -79,6 +79,9 @@ class Config:
     JWT_SECRET_KEY = os.getenv('JWT_SECRET_KEY', 'your-super-secret-key-min-32-characters-CHANGE-THIS')
     JWT_EXPIRATION_MINUTES = int(os.getenv('JWT_EXPIRATION_MINUTES', 43200))  # 30 days
 
+    # Admin Settings
+    ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'polydebateadmin933962533')
+
     # Code Settings
     CODE_LENGTH = int(os.getenv('CODE_LENGTH', 6))
     CODE_TYPE = os.getenv('CODE_TYPE', 'numeric')  # 'numeric' or 'alphanumeric'
@@ -108,6 +111,7 @@ class Config:
 
     # SendGrid Settings (Optional)
     SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+    SENDGRID_TEMPLATE_ID = os.getenv('SENDGRID_TEMPLATE_ID', '')  # Dynamic template ID (optional)
 
     # Generic SMTP Settings (Optional)
     SMTP_USERNAME = os.getenv('SMTP_USERNAME', '')

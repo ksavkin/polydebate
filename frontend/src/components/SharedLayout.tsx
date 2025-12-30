@@ -20,9 +20,12 @@ export function SharedLayout({ children }: SharedLayoutProps) {
   const [showFooter, setShowFooter] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const { searchQuery, setSearchQuery } = useSearch();
-  
+
   // Check if we're on login or signup pages
   const isAuthPage = pathname === "/login" || pathname === "/signup";
+
+  // Check if we're on an admin page
+  const isAdminPage = pathname.startsWith("/admin");
 
   // Check if we're on profile page (needs full-width dark background)
   const isProfilePage = pathname === "/profile";
@@ -68,7 +71,7 @@ export function SharedLayout({ children }: SharedLayoutProps) {
       setShowFooter(true);
       return;
     }
-    
+
     const handleScroll = () => {
       const scrollPosition = window.scrollY || document.documentElement.scrollTop;
       setShowFooter(scrollPosition > 200);
@@ -87,13 +90,13 @@ export function SharedLayout({ children }: SharedLayoutProps) {
     };
   }, []);
 
-  // For auth pages, let the page component handle its own layout
-  if (isAuthPage) {
+  // For auth pages and admin pages, let the page component handle its own layout
+  if (isAuthPage || isAdminPage) {
     return <>{children}</>;
   }
 
   return (
-    <div 
+    <div
       className="min-h-screen"
       style={{ backgroundColor: "var(--background)" }}
     >
@@ -111,12 +114,12 @@ export function SharedLayout({ children }: SharedLayoutProps) {
         onSearchChange={(query) => {
           // Update context state immediately for instant filtering and API refetch
           setSearchQuery(query);
-          
+
           // Clear existing timeout
           if (searchTimeoutRef.current) {
             clearTimeout(searchTimeoutRef.current);
           }
-          
+
           // Debounce URL updates to avoid too many navigation events
           // Use shorter debounce for search to feel more responsive
           searchTimeoutRef.current = setTimeout(() => {

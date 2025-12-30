@@ -343,7 +343,9 @@ export default function DebatePage() {
       let lastErrorTime = 0;
       const errorWindowMs = 10000; // 10 second window to reset error count
 
-      eventSource.addEventListener('error', (event: MessageEvent) => {
+      // Use a non-reserved SSE event name for application-level errors.
+      // "error" is also used by the browser/EventSource for connection errors.
+      eventSource.addEventListener('debate_error', (event: MessageEvent) => {
         try {
           if (!event.data || event.data.trim() === '') {
             return; // Skip empty error events - don't count them
@@ -365,6 +367,7 @@ export default function DebatePage() {
             // Rate limit errors are expected for free models - log as warning, not error
             const isRateLimit = data.error_type === 'rate_limit' ||
               (data.error && (data.error.includes('429') || data.error.toLowerCase().includes('rate limit')));
+            const isModelError = Boolean(data.model_id || data.model_name);
 
             // Skip empty error objects
             if (!data || (typeof data === 'object' && Object.keys(data).length === 0)) {
@@ -378,13 +381,23 @@ export default function DebatePage() {
               setError(data.message || `${data.model_name || 'A model'} is rate limited. Debate continues with other models.`);
               // Auto-clear the warning after 5 seconds so it doesn't persist
               setTimeout(() => setError(null), 5000);
+              return;
+            }
+
+            // Most "error" events are model-level failures (one model provider glitching).
+            // These should not be treated as stream corruption. Show a non-blocking warning and continue.
+            if (isModelError) {
+              console.warn('Model error (non-blocking):', data.model_name || data.model_id || 'unknown');
+              setError(data.message || `${data.model_name || 'A model'} encountered an error. Debate continues with other models.`);
+              setTimeout(() => setError(null), 5000);
+              return;
             } else {
               console.error('SSE application error event received:', data);
               handleStreamEvent('error', data);
             }
 
             // Only count non-rate-limit errors for connection issues
-            if (!isRateLimit) {
+            if (!isRateLimit && !isModelError) {
               const now = Date.now();
               if (now - lastErrorTime > errorWindowMs) {
                 errorCount = 0;

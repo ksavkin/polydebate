@@ -403,7 +403,14 @@ Example of correct format (using actual outcome names):
 
             if not content:
                 logger.warning(f"Empty content from {model_id}")
-                raise Exception("OpenRouter returned empty content")
+                # Treat as non-fatal: return a minimal fallback response so the debate can continue.
+                # This avoids emitting a stream error for a single model/provider glitch.
+                return {
+                    'content': "No response generated.",
+                    'predictions': {},
+                    'model': model_id,
+                    'tokens': data.get('usage', {})
+                }
 
             # Parse JSON response
             import json

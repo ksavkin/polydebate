@@ -82,6 +82,25 @@ class RateLimiter:
 
         return True, remaining
 
+    def check_admin_login_limit(self, email: str, ip: str) -> Tuple[bool, int]:
+        """
+        Check if email/IP has exceeded admin login limit
+        Max 5 attempts per 15 minutes
+        """
+        key = f"admin_login_attempt:{email}:{ip}"
+        limit = 5
+        window = timedelta(minutes=15)
+
+        allowed, remaining = self._check_limit(key, limit, window)
+
+        if not allowed:
+            logger.warning(
+                f"Admin login rate limit exceeded for {email} from {ip}",
+                event='admin_login_rate_limit'
+            )
+
+        return allowed, remaining
+
     def record_code_request(self, email: str, ip: str):
         """Record a code request"""
         key = f"code_request:{email}:{ip}"
@@ -92,6 +111,12 @@ class RateLimiter:
         self._verification_attempts[verify_key] = 0
 
         logger.debug(f"Recorded code request for {email} from {ip}")
+
+    def record_admin_login_attempt(self, email: str, ip: str):
+        """Record an admin login attempt"""
+        key = f"admin_login_attempt:{email}:{ip}"
+        self._record_request(key)
+        logger.debug(f"Recorded admin login attempt for {email} from {ip}")
 
     def record_verification_attempt(self, email: str, ip: str, success: bool):
         """

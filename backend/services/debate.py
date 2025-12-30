@@ -414,6 +414,21 @@ class DebateService:
                     cleaned_text = re.sub(r'_([^_]+)_', r'\1', cleaned_text)
                     # Remove HTML tags if any
                     cleaned_text = re.sub(r'<[^>]+>', '', cleaned_text)
+
+                    # If a model returns partial JSON (common on token limits), extract the argument
+                    # so users never see braces/keys like {"argument": "..."}.
+                    jsonish = cleaned_text.lstrip().startswith('{') or ('"argument"' in cleaned_text) or ('"predictions"' in cleaned_text)
+                    if jsonish:
+                        # Remove leading "{" and optional '"argument": "' prefixes (even across newlines)
+                        cleaned_text = re.sub(
+                            r'^\s*\{\s*["\']?argument["\']?\s*:\s*["\']?',
+                            '',
+                            cleaned_text,
+                            flags=re.IGNORECASE | re.DOTALL
+                        )
+                        # If predictions block exists, drop it entirely
+                        cleaned_text = re.split(r'["\']?\s*[,}]?\s*["\']?predictions["\']?\s*:\s*\{', cleaned_text, maxsplit=1, flags=re.IGNORECASE)[0]
+
                     # Remove JSON structure artifacts (if argument field wasn't properly extracted)
                     cleaned_text = re.sub(r'^\s*["\']?argument["\']?\s*:\s*["\']?', '', cleaned_text, flags=re.IGNORECASE)
                     cleaned_text = re.sub(r'["\']?\s*[,}]?\s*$', '', cleaned_text)

@@ -6,7 +6,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
 from sendgrid import SendGridAPIClient
-from sendgrid.helpers.mail import Mail
+from sendgrid.helpers.mail import Mail, To, From
 from utils.logger import get_auth_logger
 
 logger = get_auth_logger()
@@ -54,13 +54,36 @@ class EmailService:
                 })
                 body_html, body_text = self._get_login_email_body(code, to_email, user_name)
 
+            # Prepare template data for SendGrid dynamic templates
+            template_data = None
+            if self.service == 'sendgrid' and code_type == 'signup':
+                template_data = {
+                    'code': code,
+                    'name': user_name or 'there',
+                    'email': to_email,
+                    'expiry_minutes': self.config.CODE_EXPIRATION_MINUTES,
+                    'app_name': self.config.APP_NAME,
+                    'app_url': self.config.APP_URL,
+                    'support_email': self.config.SUPPORT_EMAIL
+                }
+            elif self.service == 'sendgrid' and code_type == 'login':
+                template_data = {
+                    'code': code,
+                    'name': user_name or 'there',
+                    'email': to_email,
+                    'expiry_minutes': self.config.CODE_EXPIRATION_MINUTES,
+                    'app_name': self.config.APP_NAME,
+                    'app_url': self.config.APP_URL,
+                    'support_email': self.config.SUPPORT_EMAIL
+                }
+
             # Send email based on service type
             if self.service == 'mock':
                 return self._send_mock(to_email, subject, body_text, code)
             elif self.service == 'gmail':
                 return self._send_gmail(to_email, subject, body_html, body_text)
             elif self.service == 'sendgrid':
-                return self._send_sendgrid(to_email, subject, body_html, body_text)
+                return self._send_sendgrid(to_email, subject, body_html, body_text, template_data)
             elif self.service == 'smtp':
                 return self._send_smtp(to_email, subject, body_html, body_text)
             else:
@@ -165,33 +188,56 @@ class EmailService:
             logger.log_email_sent(to_email, success=False, error=str(e), service='gmail')
             raise
 
-    def _send_sendgrid(self, to_email: str, subject: str, body_html: str, body_text: str) -> bool:
+    def _send_sendgrid(self, to_email: str, subject: str, body_html: str, body_text: str, template_data: Optional[dict] = None) -> bool:
         """Send email via SendGrid"""
         try:
-            message = Mail(
-                from_email=(self.config.EMAIL_FROM_ADDRESS, self.config.EMAIL_FROM_NAME),
-                to_emails=to_email,
-                subject=subject,
-                html_content=body_html,
-                plain_text_content=body_text
-            )
+            # Use dynamic template if template ID is configured
+            if self.config.SENDGRID_TEMPLATE_ID and template_data:
+                logger.info(f"Using SendGrid dynamic template: {self.config.SENDGRID_TEMPLATE_ID}")
+                logger.info(f"Template data: {template_data}")
+                message = Mail(
+                    from_email=From(self.config.EMAIL_FROM_ADDRESS, self.config.EMAIL_FROM_NAME),
+                    to_emails=To(to_email),
+                    subject=subject  # Set subject explicitly to override template default
+                )
+                message.template_id = self.config.SENDGRID_TEMPLATE_ID
+                message.dynamic_template_data = template_data
+                logger.info(f"From: {self.config.EMAIL_FROM_ADDRESS}, To: {to_email}, Subject: {subject}")
+            else:
+                # Fallback to regular email with HTML/text content
+                logger.info("Using SendGrid regular email (no dynamic template)")
+                message = Mail(
+                    from_email=(self.config.EMAIL_FROM_ADDRESS, self.config.EMAIL_FROM_NAME),
+                    to_emails=to_email,
+                    subject=subject,
+                    html_content=body_html,
+                    plain_text_content=body_text
+                )
 
             sg = SendGridAPIClient(self.config.SENDGRID_API_KEY)
+            logger.info(f"Sending email via SendGrid to {to_email}")
             response = sg.send(message)
+            
+            logger.info(f"SendGrid response: status_code={response.status_code}, headers={dict(response.headers)}")
 
             if response.status_code in [200, 201, 202]:
                 logger.log_email_sent(to_email, success=True, service='sendgrid')
+                logger.info(f"Email sent successfully to {to_email}")
                 return True
             else:
+                error_body = response.body.decode('utf-8') if response.body else 'No error body'
+                logger.error(f"SendGrid failed: status={response.status_code}, body={error_body}")
                 logger.log_email_sent(
                     to_email,
                     success=False,
-                    error=f"Status code: {response.status_code}",
+                    error=f"Status code: {response.status_code}, body: {error_body}",
                     service='sendgrid'
                 )
                 return False
 
         except Exception as e:
+            logger.error(f"SendGrid error: {type(e).__name__} - {str(e)}")
+            logger.exception("Full SendGrid exception traceback:")
             logger.log_email_sent(to_email, success=False, error=str(e), service='sendgrid')
             raise
 

@@ -233,6 +233,9 @@ export default function SignupPage() {
                 <p className="text-sm" style={{ color: 'var(--color-primary)' }}>
                   We sent a {expiryMinutes}-minute verification code to <strong>{email}</strong>
                 </p>
+                <p className="text-xs mt-2" style={{ color: 'var(--foreground-secondary)' }}>
+                  If you do not see it, check Spam or Junk. In Gmail, also check Promotions.
+                </p>
               </div>
 
               {successMessage && (
