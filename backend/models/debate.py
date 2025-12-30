@@ -188,6 +188,7 @@ class Debate:
                     text=msg.text,
                     audio_url=msg.audio_url,
                     audio_duration=msg.audio_duration,
+                    audio_error=getattr(msg, 'audio_error', None),  # Handle existing messages without audio_error
                     timestamp=msg.timestamp
                 )
                 db.add(message_db)
@@ -277,6 +278,7 @@ class Debate:
                     predictions=predictions,
                     audio_url=msg_db.audio_url,
                     audio_duration=msg_db.audio_duration,
+                    audio_error=getattr(msg_db, 'audio_error', None),  # Handle existing records without audio_error column
                     timestamp=msg_db.timestamp
                 )
                 messages.append(message)

@@ -1,14 +1,9 @@
 // ModelOrbsRow.tsx
 "use client";
 
+import { motion, AnimatePresence } from "framer-motion";
 import { Orb } from "@/components/Orb";
-
-interface OrbColorConfig {
-  color1: string;
-  color2: string;
-  glow1: string;
-  glow2: string;
-}
+import { getModelColorConfig } from "@/lib/utils";
 
 interface ModelSummary {
   id: string;
@@ -19,42 +14,15 @@ interface ModelOrbsRowProps {
   models: ModelSummary[];
   activeModelId: string | null;
   speakingModelId?: string | null;
+  hasAudio?: boolean; // Whether audio is available
 }
 
-const getModelColorConfig = (modelId: string): OrbColorConfig => {
-  const palette = [
-    { c1: "#ff3e1c", c2: "#1c8cff" },
-    { c1: "#3b82f6", c2: "#06b6d4" },
-    { c1: "#8b5cf6", c2: "#ec4899" },
-    { c1: "#10b981", c2: "#06b6d4" },
-    { c1: "#f59e0b", c2: "#ef4444" },
-    { c1: "#6366f1", c2: "#8b5cf6" },
-    { c1: "#ec4899", c2: "#f472b6" },
-    { c1: "#06b6d4", c2: "#3b82f6" },
-  ];
-  const hash = modelId.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const paletteIndex = hash % palette.length;
-  const colors = palette[paletteIndex];
-  const glowIntensity = 0.5 + ((hash % 30) / 100);
-
-  return {
-    color1: colors.c1,
-    color2: colors.c2,
-    glow1: `${colors.c1}${Math.floor(glowIntensity * 255)
-      .toString(16)
-      .padStart(2, "0")}`,
-    glow2: `${colors.c2}${Math.floor(glowIntensity * 255)
-      .toString(16)
-      .padStart(2, "0")}`,
-  };
-};
-
-export function ModelOrbsRow({ models, activeModelId, speakingModelId }: ModelOrbsRowProps) {
+export function ModelOrbsRow({ models, activeModelId, speakingModelId, hasAudio = true }: ModelOrbsRowProps) {
   if (models.length === 0) return null;
 
   return (
-    <div className="w-full flex flex-col items-center pb-3 mb-3" style={{ backgroundColor: "transparent" }}>
-      <div className="flex items-center justify-center gap-4 flex-wrap overflow-visible" style={{ backgroundColor: "transparent" }}>
+    <div className="w-full flex justify-center">
+      <div className="flex items-center gap-6 flex-wrap">
         {models.map((m) => {
           const isActive = m.id === activeModelId;
           const isSpeaking = m.id === speakingModelId;
@@ -63,14 +31,40 @@ export function ModelOrbsRow({ models, activeModelId, speakingModelId }: ModelOr
           return (
             <div
               key={m.id}
-              className="flex flex-col items-center"
+              className={`flex items-center gap-3 px-3 py-2 rounded-xl transition-all duration-300 ${isSpeaking ? 'bg-white shadow-sm ring-1 ring-[hsla(var(--border-subtle))]' : 'opacity-60'}`}
             >
-              <div className="relative">
-                <Orb colorConfig={colorConfig} isSpeaking={isSpeaking} />
+              <div className="relative w-8 h-8 flex items-center justify-center">
+                <Orb
+                  colorConfig={colorConfig}
+                  isSpeaking={isSpeaking}
+                  size={32}
+                />
+                <AnimatePresence>
+                  {isSpeaking && hasAudio && (
+                    <motion.div
+                      initial={{ scale: 0.8, opacity: 0 }}
+                      animate={{ scale: 1.2, opacity: 1 }}
+                      exit={{ scale: 0.8, opacity: 0 }}
+                      className="absolute inset-0 rounded-full border border-[hsl(var(--brand-blue))] animate-ping"
+                    />
+                  )}
+                </AnimatePresence>
               </div>
-              <span className="mt-2 text-xs text-[var(--foreground-secondary)] max-w-[110px] text-center truncate">
-                {m.name}
-              </span>
+
+              <div className="flex flex-col">
+                <span className="text-[11px] font-bold text-[hsl(var(--text-principal))] leading-none">
+                  {m.name}
+                </span>
+                {isSpeaking && hasAudio ? (
+                  <span className="text-[9px] font-bold text-[hsl(var(--brand-blue))] uppercase tracking-wider mt-1">
+                    Speaking
+                  </span>
+                ) : isActive ? (
+                  <span className="text-[9px] font-medium text-[hsl(var(--text-secondary))] uppercase tracking-wider mt-1">
+                    Active
+                  </span>
+                ) : null}
+              </div>
             </div>
           );
         })}

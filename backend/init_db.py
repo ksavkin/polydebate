@@ -82,14 +82,55 @@ def reset_database():
         print("Aborted.")
         return
 
-    # Delete database file if SQLite
+    # Delete database file(s) if SQLite
     if config.DATABASE_URL.startswith('sqlite'):
+        # Try to extract path from DATABASE_URL
         db_path = config.DATABASE_URL.replace('sqlite:///', '')
+        # Handle absolute paths on Unix/Mac (sqlite:////path)
+        if db_path.startswith('/'):
+            db_path = db_path
+        # Handle Windows paths
+        elif ':' in db_path and len(db_path) > 2:
+            # Windows absolute path like C:/path
+            pass
+        else:
+            # Relative path, make it absolute
+            db_path = os.path.abspath(db_path)
+        
         if os.path.exists(db_path):
             os.remove(db_path)
             print(f"✅ Deleted database file: {db_path}")
         else:
             print(f"ℹ️  Database file not found: {db_path}")
+        
+        # Also try the DB_PATH from config (storage/polydebate.db)
+        if hasattr(config, 'DB_PATH') and os.path.exists(config.DB_PATH):
+            if config.DB_PATH != db_path:  # Only delete if different path
+                os.remove(config.DB_PATH)
+                print(f"✅ Deleted database file: {config.DB_PATH}")
+        
+        # Also try the default location (backend/polydebate.db)
+        default_db_path = os.path.join(config.BASE_DIR, 'polydebate.db')
+        if os.path.exists(default_db_path) and default_db_path != db_path:
+            os.remove(default_db_path)
+            print(f"✅ Deleted database file: {default_db_path}")
+
+    # Clear audio directory
+    if os.path.exists(config.AUDIO_DIR):
+        import shutil
+        audio_files = [f for f in os.listdir(config.AUDIO_DIR) if os.path.isfile(os.path.join(config.AUDIO_DIR, f))]
+        if audio_files:
+            for audio_file in audio_files:
+                audio_path = os.path.join(config.AUDIO_DIR, audio_file)
+                try:
+                    os.remove(audio_path)
+                except Exception as e:
+                    print(f"⚠️  Could not delete audio file {audio_file}: {e}")
+            print(f"✅ Cleared {len(audio_files)} audio file(s) from {config.AUDIO_DIR}")
+        else:
+            print(f"ℹ️  Audio directory is empty: {config.AUDIO_DIR}")
+    else:
+        print(f"ℹ️  Audio directory does not exist: {config.AUDIO_DIR}")
 
     # Recreate tables
     create_tables()

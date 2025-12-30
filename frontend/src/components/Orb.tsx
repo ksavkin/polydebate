@@ -13,33 +13,36 @@ interface OrbColorConfig {
 interface OrbProps {
   colorConfig?: OrbColorConfig;
   isSpeaking?: boolean;
+  size?: number;
 }
 
 const defaultColors: OrbColorConfig = {
-  color1: '#ff3e1c',
-  color2: '#1c8cff',
-  glow1: '#ff3e1c88',
-  glow2: '#1c8cff88',
+  color1: '#1652f0',
+  color2: '#00c2ff',
+  glow1: '#1652f044',
+  glow2: '#00c2ff44',
 };
 
-export function Orb({ colorConfig = defaultColors, isSpeaking = false }: OrbProps) {
+export function Orb({ colorConfig = defaultColors, isSpeaking = false, size = 200 }: OrbProps) {
   return (
-    <div 
+    <div
       className={`${styles.orbContainer} ${isSpeaking ? styles.speaking : ''}`}
       style={{
+        width: `${size}px`,
+        height: `${size}px`,
         filter: isSpeaking
-          ? `drop-shadow(0 0 20px ${colorConfig.glow1}) drop-shadow(0 0 12px ${colorConfig.glow2}) drop-shadow(0 0 30px ${colorConfig.glow1})`
-          : `drop-shadow(0 0 6px ${colorConfig.glow1}) drop-shadow(0 0 6px ${colorConfig.glow2})`,
+          ? `drop-shadow(0 0 ${size / 10}px ${colorConfig.glow1}) drop-shadow(0 0 ${size / 16}px ${colorConfig.glow2})`
+          : `drop-shadow(0 0 ${size / 20}px ${colorConfig.glow1})`,
       }}
     >
-      <div className={styles.orb}>
-        <div 
+      <div className={styles.orb} style={{ width: `${size}px`, height: `${size}px` }}>
+        <div
           className={styles.orbInner}
           style={{
             background: colorConfig.color1,
           }}
         ></div>
-        <div 
+        <div
           className={styles.orbInner}
           style={{
             background: colorConfig.color2,
