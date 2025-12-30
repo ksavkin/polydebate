@@ -1,7 +1,14 @@
-"""
-PolyDebate Backend - Flask Application
-"""
 import sys
+import os
+
+# Use gevent monkey patching if running under gunicorn with gevent
+if os.environ.get('GUNICORN_WORKER_CLASS') == 'gevent' or 'gunicorn' in sys.argv[0]:
+    try:
+        from gevent import monkey
+        monkey.patch_all()
+    except ImportError:
+        pass
+
 import asyncio
 
 # Fix for aiohttp on Windows - requires SelectorEventLoop instead of ProactorEventLoop
@@ -37,8 +44,9 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(config)
 
-    # Setup CORS - Allow all origins for development
-    CORS(app, resources={r"/api/*": {"origins": "*"}}, supports_credentials=True)
+    # Setup CORS - Allow configured origins or all in development
+    cors_origins = config.CORS_ORIGINS if config.ENV == 'production' else "*"
+    CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
 
     # Ensure storage directories exist
     config.ensure_directories()
