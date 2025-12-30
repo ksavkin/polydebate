@@ -58,24 +58,48 @@ export function DebateChat({
     messagesRef.current = messages;
   }, [messages]);
 
-  // If debate is completed, immediately mark all messages as visible and played
-  // This handles the case where the component remounts when status changes to 'completed'
+  // If debate is completed, wait a bit before marking all messages as played
+  // This gives time for any ongoing audio playback to finish
+  // Only do this if debate_complete event was received (meaning backend finished)
   useEffect(() => {
-    if (isCompleted && messages.length > 0 && !hasCompletedRef.current) {
-      // If debate is completed, ensure all messages are visible and marked as played
-      const allMessageIds = new Set<string>();
-      messages.forEach((msg, idx) => {
-        const messageId = `${msg.model_id}-${msg.round}-${idx}`;
-        allMessageIds.add(messageId);
-      });
+    if (isCompleted && debateCompleteEventReceived && messages.length > 0 && !hasCompletedRef.current) {
+      // Wait a bit to ensure all messages have been processed
+      // This is a fallback - the main completion logic is in the audio ended handler
+      const timeoutId = setTimeout(() => {
+        if (!isMountedRef.current) {
+          return;
+        }
+        
+        // Only mark as complete if we haven't already
+        if (!hasCompletedRef.current) {
+          // Use messagesRef to get current messages at the time of execution
+          const currentMessages = messagesRef.current;
+          const allMessageIds = new Set<string>();
+          currentMessages.forEach((msg, idx) => {
+            const messageId = `${msg.model_id}-${msg.round}-${idx}`;
+            allMessageIds.add(messageId);
+          });
 
-      console.log('Debate completed - marking all messages as visible and played');
-      setVisibleMessageIds(allMessageIds);
-      setPlayedIds(allMessageIds);
-      hasCompletedRef.current = true;
-      setPlayingMessageId(null); // Stop any playing audio
+          console.log('Debate completed - marking all messages as visible and played (fallback)');
+          setVisibleMessageIds(allMessageIds);
+          setPlayedIds((prev) => {
+            const combined = new Set(prev);
+            allMessageIds.forEach(id => combined.add(id));
+            return combined;
+          });
+          hasCompletedRef.current = true;
+          setPlayingMessageId(null); // Stop any playing audio
+          
+          // Notify parent that debate is truly complete
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('debate-truly-complete'));
+          }
+        }
+      }, 3000); // Wait 3 seconds to ensure all messages are processed
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [isCompleted, messages]); // Re-run when isCompleted changes or messages array changes
+  }, [isCompleted, debateCompleteEventReceived, messages.length]); // Use messages.length instead of messages array to avoid reference changes
 
   const activeModelId = messages.length > 0 ? messages[messages.length - 1].model_id : null;
 
