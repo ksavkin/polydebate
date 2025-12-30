@@ -39,6 +39,8 @@ class EmailService:
         Returns:
             True if email sent successfully, False otherwise
         """
+        logger.info(f"Sending verification email: service={self.service}, to={to_email}, type={code_type}")
+        
         try:
             # Get subject and body based on code type
             if code_type == 'signup':
@@ -101,6 +103,14 @@ class EmailService:
 
     def _send_gmail(self, to_email: str, subject: str, body_html: str, body_text: str) -> bool:
         """Send email via Gmail SMTP"""
+        # Log configuration for debugging
+        gmail_user_masked = self.config.GMAIL_USER[:3] + '***' if self.config.GMAIL_USER else 'NOT SET'
+        app_password_set = 'SET' if self.config.GMAIL_APP_PASSWORD else 'NOT SET'
+        logger.info(
+            f"Gmail config: user={gmail_user_masked}, app_password={app_password_set}, "
+            f"host={self.config.SMTP_HOST}, port={self.config.SMTP_PORT}"
+        )
+        
         try:
             msg = MIMEMultipart('alternative')
             msg['From'] = f"{self.config.EMAIL_FROM_NAME} <{self.config.EMAIL_FROM_ADDRESS}>"
@@ -113,16 +123,31 @@ class EmailService:
             msg.attach(part1)
             msg.attach(part2)
 
+            logger.info(f"Connecting to SMTP server {self.config.SMTP_HOST}:{self.config.SMTP_PORT}")
+            
             # Connect to Gmail SMTP
             with smtplib.SMTP(self.config.SMTP_HOST, self.config.SMTP_PORT) as server:
+                logger.info("SMTP connection established, starting TLS")
                 server.starttls()
+                logger.info("TLS started, attempting login")
                 server.login(self.config.GMAIL_USER, self.config.GMAIL_APP_PASSWORD)
+                logger.info("Login successful, sending message")
                 server.send_message(msg)
+                logger.info("Message sent successfully")
 
             logger.log_email_sent(to_email, success=True, service='gmail')
             return True
 
+        except smtplib.SMTPAuthenticationError as e:
+            logger.error(f"Gmail authentication failed: {e.smtp_code} - {e.smtp_error}")
+            logger.log_email_sent(to_email, success=False, error=f"Auth error: {e.smtp_error}", service='gmail')
+            raise
+        except smtplib.SMTPException as e:
+            logger.error(f"SMTP error: {type(e).__name__} - {str(e)}")
+            logger.log_email_sent(to_email, success=False, error=str(e), service='gmail')
+            raise
         except Exception as e:
+            logger.error(f"Unexpected email error: {type(e).__name__} - {str(e)}")
             logger.log_email_sent(to_email, success=False, error=str(e), service='gmail')
             raise
 
