@@ -23,6 +23,11 @@ class AuthService:
         self.jwt_auth = JWTAuth(config)
         self.email_service = EmailService(config)
 
+    def _normalize_email(self, email: str) -> str:
+        # Normalize emails to avoid case/whitespace mismatches between signup and login.
+        # Emails are effectively case-insensitive for authentication in most systems.
+        return (email or '').strip().lower()
+
     def generate_code(self) -> str:
         """
         Generate verification code
@@ -53,6 +58,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, error_code)
         """
+        email = self._normalize_email(email)
         db = get_db()
         try:
             # Check if user already exists
@@ -120,6 +126,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, user_data_with_token, error_code)
         """
+        email = self._normalize_email(email)
         db = get_db()
         try:
             # Check if user already exists
@@ -197,6 +204,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, error_code)
         """
+        email = self._normalize_email(email)
         db = get_db()
         try:
             # Check if user exists
@@ -268,6 +276,7 @@ class AuthService:
         Returns:
             Tuple of (success, message, user_data_with_token, error_code)
         """
+        email = self._normalize_email(email)
         db = get_db()
         try:
             # Find user

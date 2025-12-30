@@ -44,11 +44,21 @@ def create_app():
     app.config.from_object(config)
 
     # Setup CORS - Allow configured origins or all in development
-    cors_origins = config.CORS_ORIGINS if config.ENV == 'production' else "*"
-    CORS(app, resources={r"/api/*": {"origins": cors_origins}}, supports_credentials=True)
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     # Ensure storage directories exist
     config.ensure_directories()
+
+    # Handle database reset if requested via CLI
+    if '--reset-db' in sys.argv:
+        if os.path.exists(config.DB_PATH):
+            try:
+                os.remove(config.DB_PATH)
+                logger.warning(f"Database reset requested: Deleted {config.DB_PATH}")
+            except Exception as e:
+                logger.error(f"Failed to delete database file: {e}")
+        else:
+            logger.info("Database reset requested but no database file found.")
 
     # Initialize database
     try:
@@ -94,6 +104,7 @@ def register_routes(app):
     from routes.models import models_bp
     from routes.favorites import favorites_bp
     from routes.profile import profile_bp
+    from routes.admin import admin_bp
 
     # Register blueprints
     app.register_blueprint(markets_bp, url_prefix='/api')
@@ -102,6 +113,7 @@ def register_routes(app):
     app.register_blueprint(models_bp, url_prefix='/api')
     app.register_blueprint(favorites_bp, url_prefix='/api')
     app.register_blueprint(profile_bp, url_prefix='/api/auth')
+    app.register_blueprint(admin_bp, url_prefix='/api/admin')
 
     @app.route('/api/health', methods=['GET'])
     def health():

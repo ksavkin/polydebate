@@ -171,7 +171,8 @@ def stream_debate(debate_id):
                 'error': 'Debate not found',
                 'message': f'Debate with ID {debate_id} was not found'
             }
-            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+            # Avoid using reserved SSE event name "error" to prevent confusion with connection errors.
+            yield f"event: debate_error\ndata: {json.dumps(error_data)}\n\n"
             return
 
         # Create new event loop for this thread
@@ -226,11 +227,13 @@ def stream_debate(debate_id):
                         break
 
                     # Format as SSE
-                    event_type = event.get('event', 'message')
+                    event_type_raw = event.get('event', 'message')
+                    # Avoid using reserved SSE event name "error" to prevent confusion with connection errors.
+                    event_type = 'debate_error' if event_type_raw == 'error' else event_type_raw
                     event_data_obj = event.get('data', {})
                     
                     # Ensure error events always have meaningful data
-                    if event_type == 'error':
+                    if event_type_raw == 'error':
                         # Skip empty error events entirely
                         if not event_data_obj:
                             logger.warning(f"Skipping empty error event (None): {event}")
@@ -279,7 +282,7 @@ def stream_debate(debate_id):
                                 'error': f'Debate task failed: {str(e)}',
                                 'message': f'The debate task encountered an error: {str(e)}'
                             }
-                            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+                            yield f"event: debate_error\ndata: {json.dumps(error_data)}\n\n"
                         break
                     # Send keepalive and continue waiting
                     yield ": keepalive\n\n"
@@ -290,7 +293,7 @@ def stream_debate(debate_id):
                 'error': str(e),
                 'message': f'Stream error: {str(e)}'
             }
-            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+            yield f"event: debate_error\ndata: {json.dumps(error_data)}\n\n"
         finally:
             # Cleanup
             if not debate_task.done():

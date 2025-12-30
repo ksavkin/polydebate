@@ -217,6 +217,64 @@ def require_auth(f):
     return decorated_function
 
 
+def require_admin(f):
+    """
+    Decorator to protect routes that require admin privileges
+
+    Usage:
+        @app.route('/api/admin/protected')
+        @require_admin
+        def admin_route(current_user):
+            return jsonify({'message': 'Welcome admin'})
+    """
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        from config import config
+
+        # First require regular auth
+        token = get_token_from_header()
+
+        if not token:
+            return jsonify({
+                'error': {
+                    'code': 'unauthorized',
+                    'message': 'No authentication token provided'
+                }
+            }), 401
+
+        try:
+            jwt_auth = JWTAuth(config)
+            user = jwt_auth.get_user_from_token(token)
+
+            if not user or not user.is_admin:
+                logger.warning(
+                    "Admin access denied",
+                    user_id=user.id if user else None,
+                    ip_address=get_client_ip(),
+                    event='admin_access_denied'
+                )
+                return jsonify({
+                    'error': {
+                        'code': 'forbidden',
+                        'message': 'Admin privileges required'
+                    }
+                }), 403
+
+            # Pass user to route function
+            return f(current_user=user, *args, **kwargs)
+
+        except Exception as e:
+            logger.error(f"Admin auth error: {str(e)}")
+            return jsonify({
+                'error': {
+                    'code': 'internal_error',
+                    'message': 'Authentication failed'
+                }
+            }), 500
+
+    return decorated_function
+
+
 def optional_auth(f):
     """
     Decorator for routes where authentication is optional

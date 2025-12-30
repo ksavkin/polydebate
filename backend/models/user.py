@@ -21,6 +21,7 @@ class User(Base):
     created_at = Column(DateTime, nullable=False, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
     is_active = Column(Boolean, default=True, nullable=False)
+    is_admin = Column(Boolean, default=False, nullable=False)
 
     # Profile fields
     avatar_url = Column(String(500), nullable=True)
@@ -59,7 +60,8 @@ class User(Base):
             'total_debates': self.total_debates,
             'created_at': self.created_at.isoformat() + 'Z' if self.created_at else None,
             'last_login': self.last_login.isoformat() + 'Z' if self.last_login else None,
-            'is_active': self.is_active
+            'is_active': self.is_active,
+            'is_admin': self.is_admin
         }
 
     def get_remaining_debates(self) -> int:
