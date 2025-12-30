@@ -20,9 +20,16 @@ class Config:
     HOST = os.getenv('HOST', '0.0.0.0')
     PORT = int(os.getenv('PORT', 5000))
 
-    # CORS
+    # CORS - Production and development origins
     FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
-    CORS_ORIGINS = [FRONTEND_URL, 'http://localhost:3003', 'http://localhost:3004']  # Support multiple ports
+    CORS_ORIGINS = [
+        FRONTEND_URL,
+        'https://polydebate.com',
+        'https://www.polydebate.com',
+        'http://localhost:3000',
+        'http://localhost:3003',
+        'http://localhost:3004',
+    ]
 
     # API Keys
     OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
