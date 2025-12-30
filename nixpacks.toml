@@ -1,12 +1,11 @@
 [phases.setup]
-nixPkgs = ["python311", "curl"]
+nixPkgs = ["python311", "python311Packages.pip", "python311Packages.setuptools"]
 
 [phases.install]
 cmds = [
-  "curl -sS https://bootstrap.pypa.io/get-pip.py | python3",
   "cd backend && pip install -r requirements.txt"
 ]
 
 [start]
-cmd = "gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 --worker-class gevent"
+cmd = "PYTHONPATH=/app:$PYTHONPATH gunicorn app:app --bind 0.0.0.0:$PORT --workers 2 --threads 2 --timeout 120 --worker-class gevent"
 
