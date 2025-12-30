@@ -161,12 +161,61 @@ class ElevenLabsService:
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     logger.info(f"Response status: {response.status}")
+                    
+                    # Handle voice limit error (400) by trying a fallback voice
+                    if response.status == 400:
+                        error_text = await response.text()
+                        logger.error(f"API error response: {error_text}")
+                        
+                        if 'voice_limit_reached' in error_text:
+                            logger.warning(f"Voice limit reached for {voice_id}, trying fallback voice")
+                            # Try using the first available voice as fallback
+                            fallback_voice_id = self.available_voices[0]
+                            logger.info(f"Retrying with fallback voice: {fallback_voice_id}")
+                            
+                            # Retry with fallback voice
+                            fallback_url = f"{self.base_url}/text-to-speech/{fallback_voice_id}"
+                            async with session.post(
+                                fallback_url,
+                                headers=headers,
+                                json=payload,
+                                ssl=False,
+                                timeout=aiohttp.ClientTimeout(total=30)
+                            ) as fallback_response:
+                                logger.info(f"Fallback response status: {fallback_response.status}")
+                                if fallback_response.status == 200:
+                                    # Success with fallback voice
+                                    audio_data = await fallback_response.read()
+                                    audio_path = os.path.join(config.AUDIO_DIR, f"{message_id}.mp3")
+                                    
+                                    with open(audio_path, 'wb') as f:
+                                        f.write(audio_data)
+                                    
+                                    word_count = len(text.split())
+                                    estimated_duration = (word_count / 150) * 60
+                                    
+                                    logger.info(f"Generated audio with fallback voice for message {message_id}: {len(audio_data)} bytes")
+                                    
+                                    return {
+                                        'audio_url': f"/api/audio/{message_id}.mp3",
+                                        'audio_duration': round(estimated_duration, 1),
+                                        'voice_id': fallback_voice_id,
+                                        'audio_file_size': len(audio_data),
+                                        'used_fallback': True
+                                    }
+                                else:
+                                    # Fallback also failed - will be caught by exception handler
+                                    fallback_error = await fallback_response.text()
+                                    logger.error(f"Fallback voice also failed: {fallback_error}")
+                                    fallback_response.raise_for_status()
+                    
+                    # For non-200 responses (other than handled 400), raise error
                     if response.status != 200:
                         error_text = await response.text()
                         logger.error(f"API error response: {error_text}")
-                    response.raise_for_status()
+                        response.raise_for_status()
 
-                    # Save audio file
+                    # Success - save audio file
                     audio_data = await response.read()
                     audio_path = os.path.join(config.AUDIO_DIR, f"{message_id}.mp3")
 
@@ -205,6 +254,24 @@ class ElevenLabsService:
                     'voice_id': voice_id,
                     'error': 'Rate limit exceeded'
                 }
+            elif e.status == 400:
+                # Check if it's a voice limit error
+                error_text = str(e.message) if hasattr(e, 'message') else ''
+                if 'voice_limit_reached' in error_text:
+                    logger.warning(f"Voice limit reached for {voice_id}, audio generation skipped")
+                    return {
+                        'audio_url': None,
+                        'audio_duration': 0,
+                        'voice_id': voice_id,
+                        'error': 'Voice limit reached - using fallback voice failed'
+                    }
+                else:
+                    return {
+                        'audio_url': None,
+                        'audio_duration': 0,
+                        'voice_id': voice_id,
+                        'error': f'API error: {e.status}'
+                    }
             else:
                 return {
                     'audio_url': None,

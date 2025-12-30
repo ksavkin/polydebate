@@ -9,7 +9,10 @@ from datetime import datetime
 # Add the backend directory to the path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from models import init_db, Session, User, VerificationCode
+from database import init_db, create_all_tables, get_db
+from models import User, VerificationCode
+# Import all models so SQLAlchemy knows about them when creating tables
+import models
 from config import config
 
 
@@ -32,7 +35,8 @@ def create_tables():
 
     print("\n📊 Creating database tables...")
     try:
-        init_db()
+        init_db(config.DATABASE_URL, echo=False)
+        create_all_tables()
         print("✅ Database tables created successfully!")
     except Exception as e:
         print(f"❌ Error creating tables: {e}")
@@ -40,7 +44,7 @@ def create_tables():
 
     # Verify tables were created
     print("\n🔍 Verifying tables...")
-    db = Session()
+    db = get_db()
     try:
         # Check users table
         user_count = db.query(User).count()
@@ -97,7 +101,7 @@ def show_stats():
     print("Database Statistics")
     print("=" * 60)
 
-    db = Session()
+    db = get_db()
     try:
         # User stats
         total_users = db.query(User).count()
