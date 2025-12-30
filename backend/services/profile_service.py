@@ -168,13 +168,14 @@ def get_favorite_categories(db, user_id, limit=3):
         return []
 
 
-def format_debate_summary(db, debate):
+def format_debate_summary(db, debate, viewer_id=None):
     """
     Format debate for list view
 
     Args:
         db: Database session
         debate: DebateDB object
+        viewer_id: ID of the user viewing the debate (to check favorites)
 
     Returns:
         dict: Formatted debate summary
@@ -182,26 +183,17 @@ def format_debate_summary(db, debate):
     try:
         from models.db_models import DebateModelDB
 
-        # Check if the debate's market is favorited
-        # Check if the debate is favorited
+        # Check if the debate is favorited by the viewer
         is_favorite = False
-        if debate.user_id:
-            # Check specific debate favorite
+        if viewer_id:
+            # Check specific debate favorite for this viewer
             fav = db.query(UserFavorite).filter_by(
-                user_id=debate.user_id,
+                user_id=viewer_id,
                 debate_id=debate.debate_id
             ).first()
             
             if fav:
                 is_favorite = True
-            elif debate.market_id:
-                # Fallback: Check if generic market is favorited (where debate_id is NULL)
-                # This maintains backward compatibility if we want to support "favoriting a market" generally
-                # But for now, let's prioritize specific debate favorites.
-                # Actually, if we want "unique by id", we should strictly check debate_id if we are listing debates.
-                # However, if the user favorited the MARKET via some other UI, maybe we should show it?
-                # The user said "it has to be unique yk by id". So let's stick to debate_id.
-                pass
 
         # Count models using a query instead of accessing the relationship
         models_count = db.query(DebateModelDB).filter_by(

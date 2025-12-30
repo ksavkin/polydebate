@@ -240,7 +240,7 @@ def get_user_debates(current_user):
         # Format debates
         formatted_debates = []
         for debate in debates:
-            summary = format_debate_summary(db, debate)
+            summary = format_debate_summary(db, debate, viewer_id=user_id)
             if summary:
                 formatted_debates.append(summary)
 
@@ -301,7 +301,6 @@ def get_top_debates(current_user):
 
             debates = db.query(DebateDB).filter(
                 DebateDB.debate_id.in_(debate_ids),
-                DebateDB.user_id == user_id,
                 DebateDB.is_deleted == False
             ).order_by(DebateDB.created_at.desc()).limit(limit).all()
 
@@ -315,7 +314,7 @@ def get_top_debates(current_user):
         # Format debates
         formatted_debates = []
         for debate in debates:
-            summary = format_debate_summary(db, debate)
+            summary = format_debate_summary(db, debate, viewer_id=user_id)
             if summary:
                 formatted_debates.append(summary)
 
