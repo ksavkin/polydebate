@@ -32,6 +32,15 @@ class User(Base):
     daily_debate_count = Column(Integer, default=0)
     last_debate_date = Column(Date, nullable=True)
 
+    # Profile fields
+    avatar_url = Column(String(500), nullable=True)
+    tokens_remaining = Column(Integer, default=100000)
+    total_debates = Column(Integer, default=0)
+
+    # Daily debate limit fields
+    daily_debate_count = Column(Integer, default=0)
+    last_debate_date = Column(Date, nullable=True)
+
     # Relationship to verification codes
     verification_codes = relationship(
         "VerificationCode",
