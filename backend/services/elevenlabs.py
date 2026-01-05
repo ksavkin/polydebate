@@ -136,7 +136,10 @@ class ElevenLabsService:
             async with aiohttp.ClientSession() as session:
                 headers = {
                     "xi-api-key": self.api_key,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json",
+                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                    "Accept": "audio/mpeg",
+                    "Accept-Language": "en-US,en;q=0.9"
                 }
 
                 payload = {
@@ -157,7 +160,6 @@ class ElevenLabsService:
                     url,
                     headers=headers,
                     json=payload,
-                    ssl=False,
                     timeout=aiohttp.ClientTimeout(total=30)
                 ) as response:
                     logger.info(f"Response status: {response.status}")
@@ -173,13 +175,12 @@ class ElevenLabsService:
                             fallback_voice_id = self.available_voices[0]
                             logger.info(f"Retrying with fallback voice: {fallback_voice_id}")
                             
-                            # Retry with fallback voice
+                            # Retry with fallback voice (headers already have User-Agent from above)
                             fallback_url = f"{self.base_url}/text-to-speech/{fallback_voice_id}"
                             async with session.post(
                                 fallback_url,
                                 headers=headers,
                                 json=payload,
-                                ssl=False,
                                 timeout=aiohttp.ClientTimeout(total=30)
                             ) as fallback_response:
                                 logger.info(f"Fallback response status: {fallback_response.status}")
