@@ -416,7 +416,9 @@ def get_audio_status():
                 try:
                     async with aiohttp.ClientSession() as session:
                         headers = {
-                            "xi-api-key": config.ELEVENLABS_API_KEY
+                            "xi-api-key": config.ELEVENLABS_API_KEY,
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                            "Accept": "application/json"
                         }
                         # Try to get user info - this will fail if quota is exceeded or key is invalid
                         async with session.get(
