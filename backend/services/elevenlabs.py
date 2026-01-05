@@ -18,7 +18,7 @@ class ElevenLabsService:
         self.api_key = config.ELEVENLABS_API_KEY
         if self.api_key:
             # Log first few chars for debugging (don't log full key)
-            logger.info(f"ElevenLabs API key configured: {self.api_key[:10]}...")
+            logger.debug(f"ElevenLabs API key configured: {self.api_key[:10]}...")
         else:
             logger.warning("ElevenLabs API key not found in environment variables")
 

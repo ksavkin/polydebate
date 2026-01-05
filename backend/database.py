@@ -63,8 +63,18 @@ def create_all_tables():
     if engine is None:
         raise RuntimeError("Database not initialized. Call init_db() first.")
 
-    Base.metadata.create_all(bind=engine)
-    logger.info("All database tables created")
+    try:
+        Base.metadata.create_all(bind=engine, checkfirst=True)
+        logger.info("Database tables verified/created successfully")
+    except Exception as e:
+        # If tables already exist, this is expected behavior in production
+        # Log as debug instead of error
+        error_msg = str(e).lower()
+        if 'already exists' in error_msg:
+            logger.debug(f"Database tables already exist (this is normal): {e}")
+        else:
+            # Re-raise unexpected errors
+            raise
 
 
 def drop_all_tables():
