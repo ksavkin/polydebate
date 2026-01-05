@@ -5,8 +5,9 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV NEXT_PUBLIC_API_URL=""
-# Cache bust: 2026-01-03
+ARG NEXT_PUBLIC_API_URL=http://localhost:5001
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Cache bust: 2026-01-05
 RUN npm run build
 
 # Final image
