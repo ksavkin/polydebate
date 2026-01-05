@@ -33,7 +33,8 @@ class OpenRouterService:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "HTTP-Referer": config.APP_URL,
-            "X-Title": "AI Debate Platform"
+            "X-Title": "AI Debate Platform",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         }
 
         response = requests.get(
@@ -282,7 +283,8 @@ Example of correct format (using actual outcome names):
                 "Authorization": f"Bearer {self.api_key}",
                 "HTTP-Referer": config.APP_URL,
                 "X-Title": "AI Debate Platform",
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
             }
 
             # Calculate max_tokens based on number of outcomes
@@ -319,7 +321,6 @@ Example of correct format (using actual outcome names):
                         f"{self.base_url}/chat/completions",
                         headers=headers,
                         json=payload,
-                        ssl=False,
                         timeout=aiohttp.ClientTimeout(total=60)
                     ) as response:
                         # Check for rate limit (429) specifically
