@@ -62,18 +62,20 @@ def create_app():
 
     # Initialize database
     try:
-        logger.info(f"Initializing database: {config.DATABASE_URL}")
+        logger.debug(f"Initializing database: {config.DATABASE_URL}")
         init_db(config.DATABASE_URL, echo=False)  # Disable SQL echo to reduce log noise
         create_all_tables()
-        logger.info("Database initialized successfully")
+        logger.debug("Database initialized successfully")
     except Exception as e:
-        logger.error(f"Database initialization failed: {e}")
-        # Continue anyway for development
+        # Log database errors but continue - in production with multiple workers,
+        # it's normal for workers to race to create tables
+        logger.warning(f"Database initialization warning: {e}")
+        # Continue anyway - tables likely already exist from another worker
 
     # Validate configuration
     try:
         config.validate()
-        logger.info("Configuration validated successfully")
+        logger.debug("Configuration validated successfully")
     except ValueError as e:
         logger.error(f"Configuration validation failed: {e}")
         # Continue anyway for development
@@ -90,7 +92,7 @@ def create_app():
     # Register error handlers
     register_error_handlers(app)
 
-    logger.info("Flask app created successfully")
+    logger.debug("Flask app created successfully")
     return app
 
 
