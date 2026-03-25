@@ -101,6 +101,8 @@ server {
 }
 NGINX
 
+# Unset PORT so backend and frontend use their supervisor-configured ports
+unset PORT
 exec supervisord -c /etc/supervisor/supervisord.conf
 STARTEOF
 RUN chmod +x /app/start.sh
