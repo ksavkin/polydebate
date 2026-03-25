@@ -5,7 +5,7 @@ COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm ci
 COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
-ARG NEXT_PUBLIC_API_URL=https://polydebate.k.oxicom.ru
+ARG NEXT_PUBLIC_API_URL=https://polydebate.com
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 # Cache bust: 2026-01-05-v2
 RUN npm run build
@@ -67,6 +67,7 @@ user=root
 [program:backend]
 command=gunicorn app:app --bind 127.0.0.1:5000 --workers 2 --threads 2 --timeout 120 --worker-class gevent
 directory=/app/backend
+environment=PORT="5000"
 autostart=true
 autorestart=true
 stdout_logfile=/dev/stdout
