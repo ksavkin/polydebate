@@ -7,7 +7,6 @@ COPY frontend/ ./
 ENV NEXT_TELEMETRY_DISABLED=1
 ARG NEXT_PUBLIC_API_URL=https://polydebate.com
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
-# Cache bust: 2026-01-05-v2
 RUN npm run build
 
 # Final image
@@ -34,29 +33,8 @@ COPY --from=frontend-builder /app/frontend/.next/standalone ./frontend/
 COPY --from=frontend-builder /app/frontend/.next/static ./frontend/.next/static
 COPY --from=frontend-builder /app/frontend/public ./frontend/public
 
-# Nginx config
+# Remove default nginx config
 RUN rm /etc/nginx/sites-enabled/default
-COPY <<'EOF' /etc/nginx/sites-enabled/app.conf
-server {
-    listen 80;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-    }
-
-    location /api {
-        proxy_pass http://127.0.0.1:5000;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-EOF
 
 # Supervisor config
 COPY <<'EOF' /etc/supervisor/conf.d/app.conf
@@ -96,6 +74,37 @@ stderr_logfile=/dev/stderr
 stderr_logfile_maxbytes=0
 EOF
 
+# Startup script that generates nginx config with dynamic PORT and starts supervisor
+COPY <<'STARTEOF' /app/start.sh
+#!/bin/bash
+LISTEN_PORT=${PORT:-80}
+
+cat > /etc/nginx/sites-enabled/app.conf <<NGINX
+server {
+    listen ${LISTEN_PORT};
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host \$host;
+        proxy_cache_bypass \$http_upgrade;
+    }
+
+    location /api {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+    }
+}
+NGINX
+
+exec supervisord -c /etc/supervisor/supervisord.conf
+STARTEOF
+RUN chmod +x /app/start.sh
+
 EXPOSE 80
 
-CMD ["supervisord", "-c", "/etc/supervisor/supervisord.conf"]
+CMD ["/app/start.sh"]
