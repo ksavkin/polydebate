@@ -27,24 +27,28 @@ def init_db(database_url: str, echo: bool = False):
     """
     global engine, SessionLocal
 
-    # Create engine with SQLite-specific settings
-    # Use NullPool for SQLite to avoid connection sharing issues
+    # Create engine with appropriate settings based on database type
     from sqlalchemy.pool import NullPool
-    engine = create_engine(
-        database_url,
-        echo=echo,
-        connect_args={
-            "check_same_thread": False  # Allow multiple threads (needed for Flask)
-        },
-        poolclass=NullPool  # Create fresh connection per request for reliability
-    )
 
-    # Enable foreign keys for SQLite
-    @event.listens_for(engine, "connect")
-    def set_sqlite_pragma(dbapi_conn, connection_record):
-        cursor = dbapi_conn.cursor()
-        cursor.execute("PRAGMA foreign_keys=ON")
-        cursor.close()
+    is_sqlite = database_url.startswith('sqlite')
+
+    engine_kwargs = {
+        'echo': echo,
+        'poolclass': NullPool,
+    }
+
+    if is_sqlite:
+        engine_kwargs['connect_args'] = {"check_same_thread": False}
+
+    engine = create_engine(database_url, **engine_kwargs)
+
+    if is_sqlite:
+        # Enable foreign keys for SQLite
+        @event.listens_for(engine, "connect")
+        def set_sqlite_pragma(dbapi_conn, connection_record):
+            cursor = dbapi_conn.cursor()
+            cursor.execute("PRAGMA foreign_keys=ON")
+            cursor.close()
 
     # Create session factory
     SessionLocal = scoped_session(
