@@ -6,6 +6,7 @@ import { SharedLayout } from "@/components/SharedLayout";
 import { SearchProvider } from "@/contexts/SearchContext";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { FavoritesProvider } from "@/contexts/FavoritesContext";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -37,6 +38,7 @@ export default function RootLayout({
             </SearchProvider>
           </FavoritesProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );
