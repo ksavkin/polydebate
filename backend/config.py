@@ -109,6 +109,9 @@ class Config:
     SMTP_PORT = int(os.getenv('SMTP_PORT', 587))
     SMTP_USE_TLS = os.getenv('SMTP_USE_TLS', 'true').lower() == 'true'
 
+    # Resend Settings (Optional)
+    RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+
     # SendGrid Settings (Optional)
     SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
     SENDGRID_TEMPLATE_ID = os.getenv('SENDGRID_TEMPLATE_ID', '')  # Dynamic template ID (optional)
@@ -170,13 +173,17 @@ class Config:
         if cls.CODE_TYPE not in ['numeric', 'alphanumeric']:
             errors.append("CODE_TYPE must be 'numeric' or 'alphanumeric'")
 
-        if cls.EMAIL_SERVICE not in ['gmail', 'sendgrid', 'smtp', 'mock']:
-            errors.append("EMAIL_SERVICE must be one of: gmail, sendgrid, smtp, mock")
+        if cls.EMAIL_SERVICE not in ['gmail', 'sendgrid', 'resend', 'smtp', 'mock']:
+            errors.append("EMAIL_SERVICE must be one of: gmail, sendgrid, resend, smtp, mock")
 
         # Email service specific validations
         if cls.EMAIL_SERVICE == 'gmail':
             if not cls.GMAIL_USER or not cls.GMAIL_APP_PASSWORD:
                 errors.append("GMAIL_USER and GMAIL_APP_PASSWORD are required when using Gmail")
+
+        if cls.EMAIL_SERVICE == 'resend':
+            if not cls.RESEND_API_KEY:
+                errors.append("RESEND_API_KEY is required when using Resend")
 
         if cls.EMAIL_SERVICE == 'sendgrid':
             if not cls.SENDGRID_API_KEY:

@@ -1,7 +1,8 @@
 """
-Email service with support for Gmail SMTP, SendGrid, generic SMTP, and mock mode
+Email service with support for Gmail SMTP, SendGrid, Resend, generic SMTP, and mock mode
 """
 import smtplib
+import requests
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional
@@ -84,6 +85,8 @@ class EmailService:
                 return self._send_gmail(to_email, subject, body_html, body_text)
             elif self.service == 'sendgrid':
                 return self._send_sendgrid(to_email, subject, body_html, body_text, template_data)
+            elif self.service == 'resend':
+                return self._send_resend(to_email, subject, body_html, body_text)
             elif self.service == 'smtp':
                 return self._send_smtp(to_email, subject, body_html, body_text)
             else:
@@ -239,6 +242,45 @@ class EmailService:
             logger.error(f"SendGrid error: {type(e).__name__} - {str(e)}")
             logger.exception("Full SendGrid exception traceback:")
             logger.log_email_sent(to_email, success=False, error=str(e), service='sendgrid')
+            raise
+
+    def _send_resend(self, to_email: str, subject: str, body_html: str, body_text: str) -> bool:
+        """Send email via Resend API (HTTPS, no SMTP)"""
+        try:
+            resend_api_key = self.config.RESEND_API_KEY
+            if not resend_api_key:
+                logger.error("RESEND_API_KEY is not set")
+                return False
+
+            response = requests.post(
+                'https://api.resend.com/emails',
+                headers={
+                    'Authorization': f'Bearer {resend_api_key}',
+                    'Content-Type': 'application/json',
+                },
+                json={
+                    'from': f"{self.config.EMAIL_FROM_NAME} <{self.config.EMAIL_FROM_ADDRESS}>",
+                    'to': [to_email],
+                    'subject': subject,
+                    'html': body_html,
+                    'text': body_text,
+                },
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                logger.log_email_sent(to_email, success=True, service='resend')
+                logger.info(f"Email sent successfully via Resend to {to_email}")
+                return True
+            else:
+                error_msg = response.text
+                logger.error(f"Resend API error: status={response.status_code}, body={error_msg}")
+                logger.log_email_sent(to_email, success=False, error=error_msg, service='resend')
+                return False
+
+        except Exception as e:
+            logger.error(f"Resend error: {type(e).__name__} - {str(e)}")
+            logger.log_email_sent(to_email, success=False, error=str(e), service='resend')
             raise
 
     def _send_smtp(self, to_email: str, subject: str, body_html: str, body_text: str) -> bool:
