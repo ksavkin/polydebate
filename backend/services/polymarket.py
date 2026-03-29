@@ -552,8 +552,7 @@ class PolymarketService:
                         outcome_prices = None
                 if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
                     all_outcome_prices = [float(p) for p in outcome_prices]
-                    # Debug: Log outcomePrices from first market fallback
-                    logger.info(f"First market fallback outcomePrices: {all_outcome_prices[:5]}... (first 5)")
+                    logger.debug(f"First market fallback outcomePrices: {all_outcome_prices[:5]}... (first 5)")
 
         # Handle binary markets specially - create 2 outcomes from the outcomes field
         if is_binary_market and binary_outcome_names and len(markets) == 1:
