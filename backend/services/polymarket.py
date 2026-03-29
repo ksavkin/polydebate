@@ -302,10 +302,10 @@ class PolymarketService:
 
             # Debug: Log raw API response for Bad Bunny market
             if market_id == '35754':
-                logger.info(f"Raw API response for market {market_id}: outcomePrices={data.get('outcomePrices')}, markets count={len(data.get('markets', []))}")
+                logger.debug(f"Raw API response for market {market_id}: outcomePrices={data.get('outcomePrices')}, markets count={len(data.get('markets', []))}")
                 if data.get('markets'):
                     first_market = data.get('markets', [])[0]
-                    logger.info(f"First market outcomePrices: {first_market.get('outcomePrices')}")
+                    logger.debug(f"First market outcomePrices: {first_market.get('outcomePrices')}")
 
             market = self._transform_market_detail(data)
 
@@ -525,7 +525,7 @@ class PolymarketService:
                 if isinstance(outcome_prices, list) and len(outcome_prices) > 0:
                     all_outcome_prices = [float(p) for p in outcome_prices]
                     # Debug: Log outcomePrices from event level
-                    logger.info(f"Event-level outcomePrices: {all_outcome_prices[:5]}... (first 5)")
+                    logger.debug(f"Event-level outcomePrices: {all_outcome_prices[:5]}... (first 5)")
 
             # Try to get 24h price changes from event level
             price_changes = event_data.get('priceChanges24h', None)
@@ -621,7 +621,7 @@ class PolymarketService:
                     price = float(outcome_prices[0])
                     # Debug: Log Bad Bunny price extraction
                     if market.get('groupItemTitle', '').lower() == 'bad bunny':
-                        logger.info(f"Bad Bunny price from market outcomePrices[0]: {price}, market outcomePrices: {outcome_prices}")
+                        logger.debug(f"Bad Bunny price from market outcomePrices[0]: {price}, market outcomePrices: {outcome_prices}")
             
             # Method 2: Use event-level or first market outcomePrices array with index (fallback)
             if price is None and all_outcome_prices and idx < len(all_outcome_prices):
